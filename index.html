@@ -1,0 +1,1231 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Previsão de Abate Bovino</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: fixed left rail with the model's modules, a wide working canvas; charts drawn in SVG from theme tokens. */
+:root{
+  --bg:#eff2ee; --surface:#ffffff; --surface-2:#f6f8f5; --fg:#15201a; --fg-2:#4f5a54; --muted:#86918a;
+  --line:#dbe1dc; --line-strong:#b9c2bc; --accent:#1e6b47; --accent-fg:#ffffff; --accent-soft:#deeee4;
+  --warn-soft:#fff3d6; --warn:#8a5a00;
+  --s-hist:#2a78d6; --s-proj:#eb6834; --s-cycle:#1baf7a; --s-4:#eda100; --s-5:#6250d6;
+  --pos:#2a78d6; --neg:#e34948; --neutral:#9a9f9b; --grid:#e4e8e4; --axis:#c3c9c4;
+  --font-ui:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif; --font-num:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --radius:10px; --shadow:0 1px 2px rgba(21,32,26,.06),0 6px 18px -12px rgba(21,32,26,.18);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121614; --surface:#1a1f1c; --surface-2:#202622; --fg:#edf1ed; --fg-2:#b7c0ba; --muted:#848e88;
+  --line:#2b332e; --line-strong:#3d4741; --accent:#4aa878; --accent-fg:#0d1a13; --accent-soft:#1c2f25;
+  --warn-soft:#3a2d12; --warn:#f0c06a;
+  --s-hist:#3987e5; --s-proj:#d95926; --s-cycle:#199e70; --s-4:#c98500; --s-5:#9085e9;
+  --pos:#3987e5; --neg:#e66767; --neutral:#6f766f; --grid:#262d28; --axis:#3d4741; --shadow:none; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#121614; --surface:#1a1f1c; --surface-2:#202622; --fg:#edf1ed; --fg-2:#b7c0ba; --muted:#848e88;
+  --line:#2b332e; --line-strong:#3d4741; --accent:#4aa878; --accent-fg:#0d1a13; --accent-soft:#1c2f25;
+  --warn-soft:#3a2d12; --warn:#f0c06a;
+  --s-hist:#3987e5; --s-proj:#d95926; --s-cycle:#199e70; --s-4:#c98500; --s-5:#9085e9;
+  --pos:#3987e5; --neg:#e66767; --neutral:#6f766f; --grid:#262d28; --axis:#3d4741; --shadow:none; color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:700}
+h1{font-size:18px;letter-spacing:-.01em}
+h2{font-size:20px;letter-spacing:-.015em}
+h3{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-2);font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);min-height:100%}
+.top{grid-column:1/-1;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.02em}
+.brand small{display:block;color:var(--muted);font-size:11.5px;font-weight:500;letter-spacing:.02em}
+.top .spacer{flex:1}
+.strip{flex-basis:100%;overflow-x:auto;min-width:0;margin-top:2px}
+.strip table{width:auto;min-width:100%;font-size:11.5px;border-collapse:collapse}
+.strip th,.strip td{padding:2px 7px;border-bottom:0;white-space:nowrap;line-height:1.3}
+.strip th{font-size:10.5px;color:var(--muted);letter-spacing:.04em;padding-bottom:0}
+.strip td{font-family:var(--font-num)}
+.strip td.y{font-family:var(--font-ui);font-weight:700;color:var(--fg-2);text-align:left}
+.strip td.tot{font-weight:700;border-left:1px solid var(--line)}
+.strip td.manual{text-decoration:underline dotted var(--s-proj);text-underline-offset:3px}
+.strip tr+tr td{border-top:1px solid var(--line)}
+.chart .ovl{position:absolute;top:8px;left:64px;display:flex;flex-direction:column;gap:4px;background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px;backdrop-filter:blur(3px);z-index:2}
+.chart .ovl .prow{display:grid;grid-template-columns:18px 86px 24px 24px;align-items:center;gap:4px}
+.chart .ovl .prow b{font-family:var(--font-num);font-weight:600;text-align:right}
+.chart .ovl .prow span{color:var(--muted);font-weight:700}
+.chart .ovl button{border:1px solid var(--line-strong);background:var(--surface);border-radius:5px;height:22px;cursor:pointer;font-weight:700;color:var(--fg-2);padding:0;line-height:1}
+.chart .ovl button:hover{background:var(--accent-soft);color:var(--accent)}
+.chart .ovl .hint{font-size:10.5px;color:var(--muted);margin-top:2px}
+.chart .h-move{cursor:move}.chart .h-amp{cursor:ns-resize}.chart .h-per{cursor:ew-resize}
+.chart.dragging{user-select:none}
+td input.manual{color:var(--s-proj);font-weight:600;text-decoration:underline dotted;text-underline-offset:3px}
+td.manual{color:var(--s-proj);text-decoration:underline dotted;text-underline-offset:3px}
+.ed{cursor:text;border-bottom:1px dashed transparent;border-radius:3px}
+.ed:hover{border-bottom-color:var(--line-strong);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.ed-input{font:inherit;font-family:var(--font-num);font-size:inherit;border:1px solid var(--accent);border-radius:4px;padding:1px 4px;background:var(--surface);color:var(--fg);text-align:right;min-width:0}
+.kpi .value .ed-input{font-size:20px;font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--fg-2);background:var(--surface-2);white-space:nowrap}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.chip.ok .dot{background:var(--accent)}
+.chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.small{padding:4px 9px;font-size:12px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+:root{--top-h:96px}
+.side{background:var(--surface);border-right:1px solid var(--line);padding-block:14px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:10px;position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--top-h));align-self:start;height:calc(100vh - var(--top-h) - env(safe-area-inset-top,0px));overflow:auto}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--fg-2);text-decoration:none;font-weight:600;font-size:13.5px}
+.nav a .k{width:22px;height:22px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--font-num);font-size:11px;color:var(--muted)}
+.nav a:hover{background:var(--surface-2);color:var(--fg)}
+.nav a.active{background:var(--accent-soft);color:var(--accent)}
+.nav a.active .k{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.nav .group{margin:14px 10px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.side .foot{margin:18px 10px 0;font-size:12px;color:var(--muted);line-height:1.45}
+
+main{min-width:0;padding-block:22px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.page{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-head p{color:var(--fg-2);max-width:72ch;margin-top:4px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);min-width:0}
+.card h3{margin-bottom:10px}
+.card .sub{color:var(--muted);font-size:12.5px;margin-top:-6px;margin-bottom:10px}
+.grid{display:grid;gap:14px}
+.grid.kpi{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+.grid.three{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.kpi .value{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1.1}
+.kpi .value small{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:4px}
+.kpi .delta{font-size:12.5px;margin-top:6px;color:var(--fg-2)}
+.kpi .delta b{font-family:var(--font-num);font-weight:600}
+.kpi .delta.up b{color:var(--accent)}
+.kpi .delta.down b{color:var(--neg)}
+.kpi .foot{font-size:11.5px;color:var(--muted);margin-top:4px}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toolbar .sep{width:1px;height:22px;background:var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:5px 11px;cursor:pointer;font-weight:600;font-size:12.5px;color:var(--fg-2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:var(--accent-fg)}
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-weight:600;font-size:13px}
+.toggle input{appearance:none;width:34px;height:20px;border-radius:999px;background:var(--line-strong);position:relative;margin:0;cursor:pointer;transition:background .15s}
+.toggle input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.toggle input:checked{background:var(--accent)}
+.toggle input:checked::after{left:16px}
+.toggle .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:12px;color:var(--fg-2);font-weight:600}
+.field .hint{font-size:11.5px;color:var(--muted)}
+.field input,.field select,.field textarea{border:1px solid var(--line-strong);border-radius:8px;padding:7px 9px;background:var(--surface);min-width:0;width:100%}
+.field input[type=number]{font-family:var(--font-num)}
+.field textarea{font-family:var(--font-num);font-size:12px;line-height:1.4;min-height:120px;resize:vertical}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stepper{display:flex;align-items:stretch;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+.stepper input{border:0 !important;border-radius:0 !important;text-align:center;flex:1}
+.stepper button{border:0;background:var(--surface-2);width:30px;cursor:pointer;font-weight:700;color:var(--fg-2)}
+.stepper button:hover{background:var(--accent-soft);color:var(--accent)}
+.derived{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
+.derived div{font-size:12.5px;color:var(--fg-2)}
+.derived b{display:block;font-family:var(--font-num);font-size:15px;color:var(--fg);font-weight:600}
+
+.tbl-wrap{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:6px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;border-bottom:1px solid var(--line-strong)}
+td.l,th.l{text-align:left}
+td{font-family:var(--font-num)}
+td.l{font-family:var(--font-ui);font-weight:600}
+tr.total td{font-weight:600;border-top:2px solid var(--line-strong);background:var(--surface-2)}
+tr:hover td{background:var(--surface-2)}
+td.proj{color:var(--s-proj)}
+td.sif{color:var(--s-hist);font-style:italic}
+td.neg{color:var(--neg)}
+td.posv{color:var(--pos)}
+td input{width:96px;border:1px solid transparent;border-radius:6px;padding:3px 6px;background:transparent;text-align:right;font-family:var(--font-num)}
+td input:hover{border-color:var(--line-strong)}
+td input:focus{border-color:var(--accent);background:var(--surface)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--fg-2);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.legend i.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px)}
+.legend i.sq{height:10px;width:10px;border-radius:2px}
+
+.chart{position:relative;width:100%;min-width:0}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font-size:12px;padding:6px 9px;border-radius:7px;box-shadow:0 6px 20px -8px rgba(0,0,0,.4);transform:translate(-50%,calc(-100% - 10px));white-space:nowrap;z-index:3;display:none;line-height:1.35}
+.chart .tip b{font-weight:700}
+.chart .tip .row{display:flex;gap:8px;justify-content:space-between;font-family:var(--font-num)}
+.chart .tip .row i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px}
+.chart text{font-family:var(--font-num);font-size:11px;fill:var(--muted)}
+.chart text.lbl{font-family:var(--font-ui);font-weight:600;fill:var(--fg-2)}
+.chart .grid line{stroke:var(--grid);stroke-width:1}
+.chart .axis{stroke:var(--axis)}
+.note{background:var(--surface-2);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px;color:var(--fg-2)}
+.note.warn{border-left-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
+.note b{color:var(--fg)}
+.note.warn b{color:inherit}
+.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.pill.ibge{background:var(--accent-soft);color:var(--accent)}
+.pill.sif{background:color-mix(in srgb,var(--s-hist) 18%,transparent);color:var(--s-hist)}
+.pill.proj{background:color-mix(in srgb,var(--s-proj) 18%,transparent);color:var(--s-proj)}
+.scen-list{display:flex;flex-direction:column;gap:8px}
+.scen{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.scen .name{flex:1;font-weight:600}
+.scen .meta{font-size:12px;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;place-items:center;z-index:20;padding:16px}
+.modal.open{display:grid}
+.modal .box{background:var(--surface);border-radius:12px;padding:18px;max-width:720px;width:100%;max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.src-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.hide-mobile{display:initial}
+@media (max-width: 860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding-block:8px}
+  .nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px}
+  .nav a{white-space:nowrap;padding:6px 10px}
+  .nav .group,.side .foot{display:none}
+  .hide-mobile{display:none}
+  .kpi .value{font-size:24px}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark">AB</div>
+      <div><h1>Previsão de Abate Bovino</h1><small>Brasil · IBGE/SIF · ciclo, sazonalidade, clima e cota China</small></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="chip" id="saveChip"><span class="dot"></span><span id="saveChipText">Padrão da planilha</span></span>
+    <button class="btn small" id="btnExport">Exportar</button>
+    <button class="btn small" id="btnReset">Restaurar planilha</button>
+    <button class="btn small primary" id="btnSave">Salvar</button>
+    <div class="strip" id="strip"></div>
+  </header>
+  <nav class="side">
+    <div class="nav" id="nav"></div>
+    <div class="foot">Fórmula central: <span class="num">Abate = MM12<sub>ciclo</sub> × (1+saz) × (1+clima) × (1+cota)</span>. Os valores padrão reproduzem a planilha.</div>
+  </nav>
+  <main><div class="page" id="view"></div></main>
+</div>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DEFAULT_DATA = {"hist":{"months":["1997-01","1997-02","1997-03","1997-04","1997-05","1997-06","1997-07","1997-08","1997-09","1997-10","1997-11","1997-12","1998-01","1998-02","1998-03","1998-04","1998-05","1998-06","1998-07","1998-08","1998-09","1998-10","1998-11","1998-12","1999-01","1999-02","1999-03","1999-04","1999-05","1999-06","1999-07","1999-08","1999-09","1999-10","1999-11","1999-12","2000-01","2000-02","2000-03","2000-04","2000-05","2000-06","2000-07","2000-08","2000-09","2000-10","2000-11","2000-12","2001-01","2001-02","2001-03","2001-04","2001-05","2001-06","2001-07","2001-08","2001-09","2001-10","2001-11","2001-12","2002-01","2002-02","2002-03","2002-04","2002-05","2002-06","2002-07","2002-08","2002-09","2002-10","2002-11","2002-12","2003-01","2003-02","2003-03","2003-04","2003-05","2003-06","2003-07","2003-08","2003-09","2003-10","2003-11","2003-12","2004-01","2004-02","2004-03","2004-04","2004-05","2004-06","2004-07","2004-08","2004-09","2004-10","2004-11","2004-12","2005-01","2005-02","2005-03","2005-04","2005-05","2005-06","2005-07","2005-08","2005-09","2005-10","2005-11","2005-12","2006-01","2006-02","2006-03","2006-04","2006-05","2006-06","2006-07","2006-08","2006-09","2006-10","2006-11","2006-12","2007-01","2007-02","2007-03","2007-04","2007-05","2007-06","2007-07","2007-08","2007-09","2007-10","2007-11","2007-12","2008-01","2008-02","2008-03","2008-04","2008-05","2008-06","2008-07","2008-08","2008-09","2008-10","2008-11","2008-12","2009-01","2009-02","2009-03","2009-04","2009-05","2009-06","2009-07","2009-08","2009-09","2009-10","2009-11","2009-12","2010-01","2010-02","2010-03","2010-04","2010-05","2010-06","2010-07","2010-08","2010-09","2010-10","2010-11","2010-12","2011-01","2011-02","2011-03","2011-04","2011-05","2011-06","2011-07","2011-08","2011-09","2011-10","2011-11","2011-12","2012-01","2012-02","2012-03","2012-04","2012-05","2012-06","2012-07","2012-08","2012-09","2012-10","2012-11","2012-12","2013-01","2013-02","2013-03","2013-04","2013-05","2013-06","2013-07","2013-08","2013-09","2013-10","2013-11","2013-12","2014-01","2014-02","2014-03","2014-04","2014-05","2014-06","2014-07","2014-08","2014-09","2014-10","2014-11","2014-12","2015-01","2015-02","2015-03","2015-04","2015-05","2015-06","2015-07","2015-08","2015-09","2015-10","2015-11","2015-12","2016-01","2016-02","2016-03","2016-04","2016-05","2016-06","2016-07","2016-08","2016-09","2016-10","2016-11","2016-12","2017-01","2017-02","2017-03","2017-04","2017-05","2017-06","2017-07","2017-08","2017-09","2017-10","2017-11","2017-12","2018-01","2018-02","2018-03","2018-04","2018-05","2018-06","2018-07","2018-08","2018-09","2018-10","2018-11","2018-12","2019-01","2019-02","2019-03","2019-04","2019-05","2019-06","2019-07","2019-08","2019-09","2019-10","2019-11","2019-12","2020-01","2020-02","2020-03","2020-04","2020-05","2020-06","2020-07","2020-08","2020-09","2020-10","2020-11","2020-12","2021-01","2021-02","2021-03","2021-04","2021-05","2021-06","2021-07","2021-08","2021-09","2021-10","2021-11","2021-12","2022-01","2022-02","2022-03","2022-04","2022-05","2022-06","2022-07","2022-08","2022-09","2022-10","2022-11","2022-12","2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09"],"total":[1227267,1129400,1153418,1252989,1227069,1194770,1248371,1252319,1283419,1322442,1212802,1381994,1227398,1127723,1285673,1217116,1258204,1239042,1273022,1202637,1200355,1263413,1214438,1397455,1233330,1239073,1390216,1333386,1420650,1447212,1447795,1488216,1356177,1432075,1410769,1588117,1320999,1362735,1409917,1300409,1511093,1455358,1440668,1519830,1370645,1452800,1442283,1498844,1467850,1277181,1571968,1410498,1587817,1512617,1539793,1710588,1507427,1670291,1553968,1626301,1602685,1477021,1484378,1546065,1663259,1608346,1690268,1686436,1659380,1832875,1823185,1850148,1806771,1727316,1780258,1678186,1791476,1662575,1746519,1721689,1823493,2007703,1839407,2059010,1993502,1833259,2144340,2018431,2156592,2250988,2306382,2344709,2278902,2127492,2193185,2288915,2177100,2014130,2255185,2396483,2413606,2518104,2504729,2573649,2319479,2063561,2307888,2486495,2378163,2131468,2571621,2227856,2684057,2615124,2577240,2762734,2598187,2666724,2554439,2605947,2717515,2431570,2807943,2499503,2798391,2446377,2548956,2620657,2455866,2434858,2437442,2513836,2573311,2320201,2355904,2610534,2595842,2412532,2441221,2361130,2341951,2343678,2079179,2264887,2206733,2039241,2243560,2183464,2348953,2367483,2428941,2377424,2397191,2519059,2345263,2605376,2341311,2198281,2544042,2460748,2587253,2547255,2566645,2408483,2428699,2322666,2357854,2514858,2338977,2323704,2441193,2222024,2488387,2355829,2390570,2503310,2390353,2382895,2463734,2522968,2336145,2305274,2578583,2357539,2695535,2605173,2661436,2832005,2559484,2833344,2731047,2623175,2894006,2575523,2658279,2923508,2874033,2739208,3043310,3018043,2797972,3018455,2905532,2964201,3039396,2674139,2659337,2804301,2998791,2735812,2978609,2700879,2791392,2939046,2656957,2929059,2736723,2408611,2594316,2527693,2581901,2523444,2587492,2474886,2523077,2611449,2467301,2614909,2452002,2451636,2416099,2519207,2570131,2565024,2472933,2515377,2333286,2370695,2414150,2621508,2473739,2324082,2600299,2125479,2740361,2557566,2675512,2805361,2505548,2645615,2602970,2810131,2676918,2434199,2661888,2618660,2313387,2835830,2852807,2933805,2530262,2812702,2663844,2708386,2771629,2541184,2614530,2642359,2838930,2457582,2944430,2875879,2678420,2918075,2614803,2548029,2463833,2386671,2486226,2272323,2588595,2542659,2660712,2545219,2567849,2606362,2269135,2497452,2129514,2179144,2288665,2247438,2421847,2457210,2534611,2546943,1937990,2162303,2242330,2556858,2277847,2242690,2490694,2272024,2606433,2550358,2623500,2734141,2605486,2477737,2419607,2647067,2547725,2385237,2533559,2541766,3033393,2903004,2929072,3181658,2887190,3067025,3048056,3044121,3196748,3148157,3088615,3381652,3422274,3263786,3628295,3554228,3318063,3360094,3107459,3219813,3382867,3255855,3324195,3415789,3633357,3536489,3867987,3688733,3790767,3887638,3477320,3691315,3442072,3243012,3626763,3473610,3588664,3659069,null,null,null],"sif":[953675,881779,891080,981399,952296,926163,947310,942125,976448,983263,911103,1040317,935365,866781,1002846,942261,965843,953576,983286,918970,918531,949679,913912,1067026,942126,962933,1102009,1057651,1136432,1165675,1170985,1210196,1067779,1122133,1108914,1245227,1027303,1070469,1102776,1022713,1203896,1140735,1118293,1175396,1044944,1119462,1117047,1146527,1139912,978454,1212506,1090856,1224085,1154547,1188685,1336997,1161207,1296290,1188178,1238040,1273435,1165067,1165920,1222384,1324964,1278331,1340375,1330746,1308240,1457218,1457418,1460360,1436758,1377928,1422949,1334039,1424996,1311183,1350736,1325728,1416364,1561084,1425585,1580162,1569696,1441256,1701861,1594285,1708126,1783172,1851211,1886655,1808695,1650550,1707238,1739154,1699845,1561584,1768940,1898814,1907880,1997504,1990177,2050349,1806654,1514701,1741930,1875817,1856887,1637365,2027231,1749379,2140530,2085157,2056074,2211633,2055146,2113097,2011225,2024887,2246750,1989305,2331527,2051139,2302196,1959549,2065018,2107509,1966969,1908802,1918780,1975448,2076813,1849700,1885281,2111810,2086633,1919889,1949362,1872211,1850083,1812020,1577672,1700281,1712181,1585071,1749309,1687417,1828363,1850469,1901992,1862704,1867882,1964863,1819233,1989913,1817478,1692410,1974676,1903762,2012851,1955384,1951159,1793474,1804057,1696711,1734228,1836926,1769564,1765036,1838096,1675770,1903912,1782721,1802085,1886476,1779943,1781713,1842824,1848162,1739934,1721893,1963492,1765130,2047011,1974283,2016558,2146820,1886175,2120382,2049282,1898737,2236647,1969163,2037567,2263327,2187561,2097362,2354458,2328754,2113250,2282589,2212565,2201394,2355265,2028061,1998780,2146825,2304114,2069177,2275504,2017719,2094525,2224812,2002651,2177076,2093661,1820065,1964054,1896950,1948855,1890198,1916978,1815799,1853837,1925444,1822780,1856947,1835351,1842958,1779712,1880797,1930000,1929860,1868917,1872508,1688866,1724002,1760090,1887967,1839541,1730807,1919407,1500640,2037822,1868399,2004230,2091094,1819261,1945673,1904851,2025963,1984011,1796302,1978483,1938267,1639785,2087128,2129035,2189322,1838528,2061638,1945971,1908751,2052660,1859143,1910584,1906113,2063385,1741637,2157848,2113430,1959080,2120678,1861857,1786850,1795921,1742849,1811676,1613335,1885935,1827647,1935915,1861538,1885808,1928340,1648451,1792354,1541381,1617952,1677566,1641005,1808382,1833546,1913500,1937000,1352982,1577231,1655987,1893268,1724284,1683293,1865135,1662410,1936479,1882990,1970590,2032193,1922565,1799607,1716838,1876176,1877089,1729176,1797612,1863938,2252064,2128963,2160783,2364862,2093992,2222557,2232459,2151349,2336846,2316331,2258622,2459356,2460361,2343389,2607229,2535339,2343267,2316167,2140344,2171028,2405540,2320015,2371660,2396517,2566391,2474812,2797604,2631716,2712330,2793179,2418825,2412771,2366845,2213436,2516838,2374390,2476408,2507769,2206770,2201358,2192680]},"cat":{"months":["2002-01","2002-02","2002-03","2002-04","2002-05","2002-06","2002-07","2002-08","2002-09","2002-10","2002-11","2002-12","2003-01","2003-02","2003-03","2003-04","2003-05","2003-06","2003-07","2003-08","2003-09","2003-10","2003-11","2003-12","2004-01","2004-02","2004-03","2004-04","2004-05","2004-06","2004-07","2004-08","2004-09","2004-10","2004-11","2004-12","2005-01","2005-02","2005-03","2005-04","2005-05","2005-06","2005-07","2005-08","2005-09","2005-10","2005-11","2005-12","2006-01","2006-02","2006-03","2006-04","2006-05","2006-06","2006-07","2006-08","2006-09","2006-10","2006-11","2006-12","2007-01","2007-02","2007-03","2007-04","2007-05","2007-06","2007-07","2007-08","2007-09","2007-10","2007-11","2007-12","2008-01","2008-02","2008-03","2008-04","2008-05","2008-06","2008-07","2008-08","2008-09","2008-10","2008-11","2008-12","2009-01","2009-02","2009-03","2009-04","2009-05","2009-06","2009-07","2009-08","2009-09","2009-10","2009-11","2009-12","2010-01","2010-02","2010-03","2010-04","2010-05","2010-06","2010-07","2010-08","2010-09","2010-10","2010-11","2010-12","2011-01","2011-02","2011-03","2011-04","2011-05","2011-06","2011-07","2011-08","2011-09","2011-10","2011-11","2011-12","2012-01","2012-02","2012-03","2012-04","2012-05","2012-06","2012-07","2012-08","2012-09","2012-10","2012-11","2012-12","2013-01","2013-02","2013-03","2013-04","2013-05","2013-06","2013-07","2013-08","2013-09","2013-10","2013-11","2013-12","2014-01","2014-02","2014-03","2014-04","2014-05","2014-06","2014-07","2014-08","2014-09","2014-10","2014-11","2014-12","2015-01","2015-02","2015-03","2015-04","2015-05","2015-06","2015-07","2015-08","2015-09","2015-10","2015-11","2015-12","2016-01","2016-02","2016-03","2016-04","2016-05","2016-06","2016-07","2016-08","2016-09","2016-10","2016-11","2016-12","2017-01","2017-02","2017-03","2017-04","2017-05","2017-06","2017-07","2017-08","2017-09","2017-10","2017-11","2017-12","2018-01","2018-02","2018-03","2018-04","2018-05","2018-06","2018-07","2018-08","2018-09","2018-10","2018-11","2018-12","2019-01","2019-02","2019-03","2019-04","2019-05","2019-06","2019-07","2019-08","2019-09","2019-10","2019-11","2019-12","2020-01","2020-02","2020-03","2020-04","2020-05","2020-06","2020-07","2020-08","2020-09","2020-10","2020-11","2020-12","2021-01","2021-02","2021-03","2021-04","2021-05","2021-06","2021-07","2021-08","2021-09","2021-10","2021-11","2021-12","2022-01","2022-02","2022-03","2022-04","2022-05","2022-06","2022-07","2022-08","2022-09","2022-10","2022-11","2022-12","2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12"],"bois":[916563,843599,841717,917441,1006201,964011,999390,1005251,988286,1062102,1053337,1038038,994098,916907,955828,904245,961624,869851,908685,910432,999995,1126151,1015517,1074486,996453,901939,1047902,1002893,1076190,1099166,1103462,1163663,1138146,1096025,1140900,1111622,1019234,903832,995516,1083048,1090658,1179040,1185040,1259554,1141839,1013305,1126678,1174244,1092863,912996,1130128,991982,1216638,1199227,1246381,1380686,1330550,1399451,1279577,1266379,1309249,1126031,1298281,1180243,1371641,1191280,1346251,1441291,1425252,1395739,1373765,1336600,1261171,1069508,1088976,1280363,1336198,1249151,1348979,1341969,1370022,1359341,1197996,1237946,1157990,1020510,1130386,1136606,1259869,1274242,1361605,1342350,1365584,1489893,1372099,1462196,1305177,1169885,1328853,1331196,1450992,1459686,1495063,1394890,1429745,1351954,1309021,1333819,1233913,1139760,1198486,1096252,1276224,1209058,1273945,1379453,1344555,1355361,1374878,1323896,1206360,1120367,1263025,1167137,1362981,1352842,1411490,1522274,1389332,1532528,1445696,1337420,1468512,1217888,1242604,1430868,1419070,1395557,1600654,1617375,1580052,1737364,1670351,1586417,1548938,1222520,1222233,1354946,1537108,1425573,1599375,1469273,1559178,1680879,1497903,1601628,1440070,1209668,1318188,1292515,1382139,1388496,1447928,1407810,1469494,1561206,1500793,1509112,1350443,1290410,1252815,1353033,1388821,1422924,1390619,1481974,1407894,1456411,1412041,1465937,1316121,1163602,1275843,1068544,1450910,1408725,1507186,1590183,1438584,1575609,1506889,1565360,1368052,1158910,1263498,1316705,1188080,1482376,1557362,1663721,1457080,1689291,1567603,1477371,1399558,1226261,1268052,1307041,1497504,1291517,1630940,1652458,1608796,1813600,1541256,1413705,1313131,1240998,1327334,1240645,1449792,1437307,1568666,1559466,1610034,1694266,1453121,1563470,1294341,1291030,1309788,1310081,1451612,1506253,1570043,1638295,1221107,1426302,1482924,1588275,1360748,1229315,1349212,1258143,1463813,1433715,1523203,1637384,1617323,1532977,1446398,1520270,1377128,1160926,1173958,1310240,1556860,1506032,1569671,1803389,1676732,1759525,1744084,1645300,1628704,1529456,1538790,1691067,1771353,1710411,1939747,1989158,1893446,1948013,1748992,1703408,1630621,1509060,1495277,1499037,1695737,1649170,1873825,1817286,1932285,2079203,1884510,1912464],"novilhos":[211543,194561,210006,198053,217049,197677,220097,221857,231064,268653,223538,204093,170597,163952,174184,170026,167998,151525,169896,196997,208067,241303,207782,210305,184755,166775,196930,184263,197937,199507,208414,222381,245262,261450,254360,235584,198361,172430,198334,210136,225209,232150,237900,258206,257437,224763,232258,236436,202096,175921,224201,188713,243354,231049,224396,241850,249557,267006,249912,241110,219165,193141,221519,209669,227065,175420,193973,210974,212619,240585,218339,185000,189509,161301,171452,189207,204228,186192,191660,199589,218005,227580,194386,207111,167170,151974,155231,162988,166762,161017,184779,212990,232005,207133,188975,203265,167152,156036,190848,187389,201627,197309,204218,208867,201613,202859,202374,209010,151575,143591,146153,139344,147883,148088,158527,183731,200902,209251,193419,193298,118204,106610,121753,118518,134441,134769,145172,167057,171573,266639,247823,220866,139998,116394,119876,140131,137201,130862,173606,195389,205685,228807,203629,187283,165727,138189,144061,143737,146942,148319,173147,183981,204736,205564,183597,176093,128369,116817,118468,124834,123894,122053,156848,163022,177832,191495,178873,189684,169772,145020,139846,127486,134018,109880,122672,116411,119051,129364,129108,126816,110045,92106,103890,100613,120520,107525,125989,139963,137585,150412,151523,149600,123062,106433,121681,113254,98890,123277,125713,145413,142505,148392,132118,133415,124609,106183,112318,117074,116499,105371,135009,149753,152480,167307,140353,139139,111326,104334,108402,112369,116433,114573,117544,130342,141643,155371,145480,165176,98822,85285,90003,83475,86079,88295,92979,104821,85172,141754,147153,169350,99975,100843,102557,99254,111504,109461,113427,135793,132513,128686,119790,130857,158124,129404,114839,116468,136756,120639,122219,151008,145160,153033,133991,134399,141998,123133,112055,119765,121415,114417,129874,143889,146613,148557,139317,139924,140456,128937,134682,124899,131996,125265,165059,160782,177178,193108,172059,193630],"vacas":[387873,361456,362019,356490,367086,373289,389595,383320,368377,422393,472692,524550,559019,563122,568341,526328,578095,567813,574179,529327,528911,545365,527330,658907,703661,665911,775425,704318,743246,808158,836382,803827,749122,658882,681376,800225,829429,810265,901548,928168,926277,932704,912828,875647,749750,702426,798565,912394,943229,904739,1054043,895003,1039052,997615,945691,968528,862549,844994,872769,926995,1022432,955144,1103455,941512,1007558,930607,850440,824817,695178,682664,728539,849128,959293,935204,942864,974273,896399,829741,756957,692468,639185,639666,586699,696412,751549,741181,815910,745395,763454,764981,731221,649033,650346,692662,660574,789709,720816,729516,852952,779025,766760,732397,712254,662312,654580,642590,705762,812148,802168,872610,914262,819173,878140,829855,794676,785688,707712,691757,750345,834733,849650,906710,993908,877048,958231,897064,895038,930690,809724,818927,825951,852689,1036041,982406,1017228,1050285,1021370,942477,998686,943905,800025,837413,817556,942734,1043781,1029381,994279,996699,1009062,894148,934640,820539,806260,827198,771844,902263,918811,844832,905778,866722,818695,785073,763400,709094,692050,678742,621083,727144,736585,803622,815243,800184,792223,797071,735803,719535,644901,613812,668449,791387,815560,817089,940860,749226,884613,816492,812716,841760,741573,727112,739021,858644,921972,906477,960174,884316,765559,923532,871105,832233,697193,751850,732733,832514,923417,890324,885807,876408,876455,760960,846333,781660,669492,683701,688646,714049,756702,747539,741015,656472,713968,691564,681914,612058,579343,549868,490331,548420,544124,587925,645011,616511,629509,621175,609154,573856,464924,433007,444462,575108,588220,664451,750988,661613,739916,724140,695540,684340,619452,590065,623728,719540,747985,806772,906352,769270,920296,892002,854304,845852,744253,814391,824319,899485,1001171,1024371,995000,1072607,1039421,976131,1065802,977523,886607,877092,835952,954054,1099193,1094383,1134394,1196891,1211768,1196082,1220302,1146444,1130604,1078045,960121,1083276],"novilhas":[84973,75624,68995,72205,71088,71838,78565,74532,68223,76865,71151,80576,80380,77923,78488,71407,78200,71323,89907,81750,83928,92493,86707,112225,106805,97230,120701,123731,136806,141449,154528,152350,144315,108561,114389,137720,129196,122675,159038,167146,168151,168766,165579,176986,167236,122348,149613,162562,136130,136325,162021,151174,183141,184665,158773,169523,153870,153802,151168,170527,165270,154429,182509,166242,187857,145343,155331,140457,121248,113697,116112,141983,162231,153305,151728,165220,156866,145826,141985,126261,113684,116344,99212,122650,129426,124955,141300,137881,158242,166749,150067,172355,148933,128996,123230,149760,146867,141026,170089,161779,166226,156789,152957,140577,141536,123402,138181,158097,148672,165783,179414,166246,185006,167613,161637,152278,134382,124114,142989,169302,161931,171587,199897,194836,239882,220498,209736,211984,188855,215250,211577,212200,249455,258835,278571,302224,296392,270312,270364,261374,212210,214871,213996,247767,280950,284049,298764,308919,305679,267772,271447,227086,221218,225405,203613,249075,249473,237294,251882,243622,257173,227822,219316,194960,183701,180006,166552,188969,195202,212584,208195,238504,255069,235149,223839,197457,161440,171108,204552,237368,232013,251285,279706,207096,284318,224824,229621,233455,187806,192482,205537,236527,263832,262379,316535,304385,260858,306645,298627,292438,233484,223169,231390,265086,324045,318416,348353,341836,348472,299734,332148,292008,247652,253467,244548,281136,282674,293800,309475,262837,308402,299215,292588,243353,236829,206857,180203,220386,192227,214904,243863,237371,254647,241487,262435,229971,166787,161240,167791,224125,228904,248081,287937,253014,291200,283042,291330,276624,236198,226009,229691,276400,264488,288135,338410,345788,419481,384331,382878,381409,321045,340076,345662,364937,424875,471197,442770,498213,490085,462827,492872,443658,391397,386432,383198,422427,512597,523475,559842,594536,593358,565474,607752,563211,549790,533997,457939,495146]},"oni":{"months":["2015-01","2015-02","2015-03","2015-04","2015-05","2015-06","2015-07","2015-08","2015-09","2015-10","2015-11","2015-12","2016-01","2016-02","2016-03","2016-04","2016-05","2016-06","2016-07","2016-08","2016-09","2016-10","2016-11","2016-12","2017-01","2017-02","2017-03","2017-04","2017-05","2017-06","2017-07","2017-08","2017-09","2017-10","2017-11","2017-12","2018-01","2018-02","2018-03","2018-04","2018-05","2018-06","2018-07","2018-08","2018-09","2018-10","2018-11","2018-12","2019-01","2019-02","2019-03","2019-04","2019-05","2019-06","2019-07","2019-08","2019-09","2019-10","2019-11","2019-12","2020-01","2020-02","2020-03","2020-04","2020-05","2020-06","2020-07","2020-08","2020-09","2020-10","2020-11","2020-12","2021-01","2021-02","2021-03","2021-04","2021-05","2021-06","2021-07","2021-08","2021-09","2021-10","2021-11","2021-12","2022-01","2022-02","2022-03","2022-04","2022-05","2022-06","2022-07","2022-08","2022-09","2022-10","2022-11","2022-12","2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"],"values":[0.45,0.38,0.45,0.61,0.82,1.03,1.33,1.64,1.93,2.18,2.34,2.37,2.22,1.84,1.28,0.54,-0.06,-0.56,-0.86,-1,-1.07,-1.11,-1.08,-0.99,-0.74,-0.54,-0.27,-0.09,0.05,0.05,-0.17,-0.46,-0.73,-0.99,-1.15,-1.26,-1.12,-1.04,-0.88,-0.67,-0.31,-0.04,0.05,0.16,0.4,0.65,0.77,0.67,0.62,0.62,0.6,0.52,0.34,0.21,0.03,-0.1,-0.03,0.12,0.23,0.2,0.11,0.08,-0.03,-0.28,-0.56,-0.76,-0.81,-0.93,-1.23,-1.47,-1.54,-1.37,-1.18,-1.04,-0.98,-0.79,-0.61,-0.52,-0.59,-0.72,-0.92,-1.06,-1.23,-1.24,-1.22,-1.22,-1.28,-1.34,-1.22,-0.99,-0.91,-1.01,-1.14,-1.12,-1.05,-0.97,-0.83,-0.62,-0.44,-0.21,0.07,0.37,0.62,0.85,1.1,1.35,1.49,1.45,1.2,0.85,0.49,0.05,0.5,0.2,0.1,-0.1,-0.2,-0.2,-0.3,-0.4,-0.4,-0.2,-0.1,0,0,0,-0.1,-0.3,-0.4,-0.5,-0.6,-0.5,-0.4,-0.2,0.1,0.5,0.9,1.4,1.8,2.4,3.1,3.4,3.6,3.5,3,2.35,1.6,0.75,0]},"betas":{"en":[0.698204,0.480754,0.29608,0.141996,0.016338,-0.083039,-0.158261,-0.211433,-0.244642,-0.259953,-0.259412,-0.245046,-0.218862,-0.182846,-0.138966,-0.089169,-0.035382,0.020486,0.076549,0.130937,0.181803,0.227317,0.265672,0.295077,0.313764,0.319983,0.312005,0.288119,0.246637,0.185886,0.104218],"ln":[0.021747,0.028623,0.046788,0.072885,0.103862,0.136971,0.169773,0.200131,0.226215,0.246498,0.259762,0.265091,0.261875,0.249811,0.2289,0.199448,0.162067,0.117673,0.06749,0.013044,-0.043832,-0.100998,-0.156013,-0.206126,-0.248284,-0.279129,-0.294994,-0.29191,-0.265602,-0.211489,-0.124685]}};
+const EXCEL_REF = {"2026-09":3038709.0,"2026-10":3252393.0,"2026-11":3425443.9,"2026-12":3600748.4,"2027-01":3169360.3,"2027-02":3030789.6,"2027-03":3069915.6,"2027-04":3010083.7,"2027-05":3272233.7,"2027-06":3150595.2,"2027-07":3077190.5,"2027-08":2975467.8,"2027-09":2723176.7,"2027-10":2768151.4,"2027-11":2762507.9,"2027-12":3029476.3,"2028-01":2674234.2,"2028-02":2579735.5,"2028-03":2649153.8,"2028-04":2644184.4,"2028-05":2852071.0,"2028-06":2745197.0,"2028-07":2682264.1,"2028-08":2596444.0,"2028-09":2380640.2,"2028-10":2426192.5,"2028-11":2429311.2,"2028-12":2674972.1};
+
+</script>
+<script>
+/* ===================== utilidades ===================== */
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const ymIdx = ym => { const [y,m] = ym.split('-').map(Number); return y*12 + m - 1; };
+const idxYm = i => `${Math.floor(i/12)}-${String(i%12+1).padStart(2,'0')}`;
+const ymAdd = (ym,k) => idxYm(ymIdx(ym)+k);
+const ymLabel = ym => `${MESES[+ym.slice(5)-1]}/${ym.slice(2,4)}`;
+const fmtInt = n => n==null||isNaN(n) ? '–' : Math.round(n).toLocaleString('pt-BR');
+const fmtMil = (n,d=1) => n==null||isNaN(n) ? '–' : (n/1000).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtPct = (x,d=1,sign=true) => x==null||isNaN(x) ? '–' : ((sign&&x>0?'+':'')+(x*100).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})+'%');
+const fmtNum = (x,d=2) => x==null||isNaN(x) ? '–' : x.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $ = (sel,root=document) => root.querySelector(sel);
+const $$ = (sel,root=document) => [...root.querySelectorAll(sel)];
+const sum = a => a.reduce((s,v)=>s+(v||0),0);
+const daysInMonth = (y,m) => new Date(Date.UTC(y,m,0)).getUTCDate();
+const parseDate = s => { const [y,m,d] = s.split('-').map(Number); return Date.UTC(y,m-1,d); };
+const DAY = 86400000;
+
+/* ===================== estado padrão (= planilha) ===================== */
+const DEFAULT_PARAMS = {
+  horizonEnd: '2028-12',
+  regress: { mode:'fixed', a:-191810.72271526698, b:1.4733201746071705, fitStart:'2016-01' },
+  cycle: { starts:['2004-02','2011-09','2017-09','2021-12'], labels:['Ciclo 1','Ciclo 2','Ciclo 3','Ciclo 4'], A:3000000, B:500000, C:0.07, D:2.9 },
+  saz: { category:'total', yearFrom:2021, yearTo:2025, manual:null },
+  clima: { afterOni:'zero', scale:1 },
+  cota: { prod:12500, expPre:1800, cota:1106, redir:0.3, episodes:[{fim:'2026-07-10', ini:'2026-11-15'}], repeat:true,
+          overrides:{'2026-11':'em_cota'} },
+  effects: { saz:true, clima:true, cota:true },
+  manual: {},
+};
+let state = { data: clone(DEFAULT_DATA), params: clone(DEFAULT_PARAMS), scenarios: [], vintages: [], meta:{savedAt:null, origin:'default'} };
+let ui = { view: 'painel', pvmPeriod:'2027', pvmMode:'isolado', pvmOrder:['saz','clima','cota'], cycleView:'alinhado', sazPeriodTab:'2021-2025', dataRows:'24', compareScen:[], fitResult:null, mmYears:null, mmBand:[2021,2025], vintSel:null, vintCmp:[], scenYear:null, scenAuthor:'Lucas' };
+
+/* ===================== motor de cálculo ===================== */
+function ols(xs, ys){
+  const n = xs.length; if (n<3) return null;
+  const mx = sum(xs)/n, my = sum(ys)/n;
+  let sxx=0, sxy=0, syy=0;
+  for (let i=0;i<n;i++){ sxx+=(xs[i]-mx)**2; sxy+=(xs[i]-mx)*(ys[i]-my); syy+=(ys[i]-my)**2; }
+  const b = sxy/sxx, a = my - b*mx;
+  let sse=0; for (let i=0;i<n;i++){ sse += (ys[i]-(a+b*xs[i]))**2; }
+  return { a, b, n, r2: 1 - sse/syy, se: Math.sqrt(sse/(n-2)) };
+}
+
+function compute(st){
+  const P = st.params, D = st.data;
+  const H = D.hist;
+  const start = ymIdx(H.months[0]);
+  const horizon = ymIdx(P.horizonEnd);
+  const N = horizon - start + 1;
+  const months = Array.from({length:N}, (_,i)=>idxYm(start+i));
+  const total = new Array(N).fill(null), sif = new Array(N).fill(null), source = new Array(N).fill(null);
+  H.months.forEach((m,i)=>{ const k = ymIdx(m)-start; if (k>=0&&k<N){ total[k]=H.total[i]; sif[k]=H.sif[i]; if (H.total[i]!=null) source[k]='ibge'; } });
+
+  // regressão TOTAL ~ SIF
+  let reg;
+  if (P.regress.mode==='fit'){
+    const xs=[], ys=[]; const f0 = ymIdx(P.regress.fitStart)-start;
+    for (let i=Math.max(0,f0); i<N; i++) if (total[i]!=null && sif[i]!=null && source[i]==='ibge'){ xs.push(sif[i]); ys.push(total[i]); }
+    reg = ols(xs,ys) || { a:P.regress.a, b:P.regress.b, n:0, r2:null };
+    reg.window = [P.regress.fitStart, idxYm(start + (ys.length? N-1 : 0))];
+  } else {
+    const xs=[], ys=[]; const f0 = ymIdx(P.regress.fitStart)-start;
+    for (let i=Math.max(0,f0); i<N; i++) if (total[i]!=null && sif[i]!=null && source[i]==='ibge'){ xs.push(sif[i]); ys.push(total[i]); }
+    const chk = ols(xs,ys);
+    reg = { a:P.regress.a, b:P.regress.b, n:chk?chk.n:0, r2:null, fixed:true, check:chk };
+  }
+  for (let i=0;i<N;i++) if (total[i]==null && sif[i]!=null){ total[i] = reg.a + reg.b*sif[i]; source[i]='sif'; }
+  let lastKnown = -1; for (let i=0;i<N;i++) if (total[i]!=null) lastKnown=i;
+  const fcStart = lastKnown+1;
+
+  // média móvel 12m
+  const mm12 = new Array(N).fill(null);
+  for (let i=11;i<=lastKnown;i++){ let ok=true,s=0; for (let j=i-11;j<=i;j++){ if (total[j]==null){ok=false;break;} s+=total[j]; } if (ok) mm12[i]=s/12; }
+
+  // ciclos
+  const cyc = P.cycle; const starts = cyc.starts.map(s=>ymIdx(s)-start);
+  const cycles = starts.map((s0,ci)=>{
+    const s1 = ci<starts.length-1 ? starts[ci+1] : lastKnown;
+    const vals=[]; for (let i=s0;i<=s1;i++) vals.push(mm12[i]);
+    const v = vals.filter(x=>x!=null);
+    return { label: cyc.labels[ci]||`Ciclo ${ci+1}`, start: idxYm(start+s0), end: idxYm(start+s1), n: v.length, values: vals,
+             min: v.length?Math.min(...v):null, max: v.length?Math.max(...v):null, open: ci===starts.length-1 };
+  });
+  const c4 = starts[starts.length-1];
+  const tOf = i => i - c4 + 1;
+  const cosine = t => cyc.A + cyc.B*Math.cos(cyc.C*t + cyc.D);
+  const base = new Array(N).fill(null); for (let i=fcStart;i<N;i++) base[i] = cosine(tOf(i));
+  const splice = lastKnown>=0 && mm12[lastKnown]!=null ? { obs: mm12[lastKnown], fit: cosine(tOf(lastKnown)), t:tOf(lastKnown) } : null;
+
+  // sazonalidade
+  const C = D.cat; const catKey = P.saz.category;
+  const catVal = i => catKey==='total' ? C.bois[i]+C.novilhos[i]+C.vacas[i]+C.novilhas[i]
+    : catKey==='machos' ? C.bois[i]+C.novilhos[i] : catKey==='femeas' ? C.vacas[i]+C.novilhas[i] : C[catKey][i];
+  const sharesFor = (y0,y1,key)=>{
+    const t=new Array(12).fill(0); let g=0;
+    C.months.forEach((m,i)=>{ const y=+m.slice(0,4); if (y>=y0&&y<=y1){ const v = key==='total'?C.bois[i]+C.novilhos[i]+C.vacas[i]+C.novilhas[i]: key==='machos'?C.bois[i]+C.novilhos[i]: key==='femeas'?C.vacas[i]+C.novilhas[i]: C[key][i]; t[+m.slice(5)-1]+=v; g+=v; } });
+    return g>0 ? t.map(v=>v/g) : null;
+  };
+  const shares = sharesFor(P.saz.yearFrom, P.saz.yearTo, catKey);
+  const sazCalc = shares ? shares.map(s=>s*12-1) : new Array(12).fill(0);
+  const saz = P.saz.manual ? P.saz.manual.map((v,i)=> v==null? sazCalc[i] : v) : sazCalc;
+
+  // clima (ENSO)
+  const O = D.oni; const oniMap = new Map(O.months.map((m,i)=>[m,O.values[i]]));
+  const lastOni = O.months.length? O.months[O.months.length-1] : null;
+  const oniAt = ym => { if (oniMap.has(ym) && oniMap.get(ym)!=null) return oniMap.get(ym); if (P.clima.afterOni==='neutral' && lastOni && ymIdx(ym)>ymIdx(lastOni)) return 0; return null; };
+  const climaAt = ym => {
+    let e=0; for (let lag=0;lag<=30;lag++){ const v = oniAt(ymAdd(ym,-lag)); if (v==null) return null; e += D.betas.en[lag]*Math.max(0,v) + D.betas.ln[lag]*Math.min(0,v); }
+    return e/100 * (P.clima.scale ?? 1);
+  };
+  const climaSeries = []; // para o gráfico
+  if (O.months.length){ const o0 = ymIdx(O.months[0]); for (let i=o0+30;i<=horizon;i++){ const ym=idxYm(i); const e=climaAt(ym); if (e!=null) climaSeries.push({ym,e}); } }
+
+  // cota China
+  const Q = P.cota;
+  const qf = -(Q.expPre/Q.prod)*(1-Q.redir);                 // queda fora de cota
+  const qa = (Q.cota-Q.expPre)*(1-Q.redir)/Q.prod;           // queda anual
+  const episodes = Q.episodes.map(ep=>({fim:parseDate(ep.fim), ini:parseDate(ep.ini), year:+ep.fim.slice(0,4)}));
+  const fracMonth = (y,m)=>{ // fração do mês (y,m) fora de cota
+    const d0 = Date.UTC(y,m-1,1), d1 = Date.UTC(y,m,1), nd = (d1-d0)/DAY; let f=0;
+    for (const ep of episodes){ const lo=Math.max(ep.fim,d0), hi=Math.min(ep.ini,d1); f += Math.max(0,(hi-lo)/DAY)/nd; }
+    return Math.min(1,f);
+  };
+  const profileFor = y => { const fr = Array.from({length:12},(_,k)=>fracMonth(y,k+1)); const fora=sum(fr), em=12-fora;
+    const plus = em>0 ? (12*qa - fora*qf)/em : 0; return { fr, fora, em, plus, eff: fr.map(f=> plus + f*(qf-plus)) }; };
+  const profiles = {}; const epYears = [...new Set(episodes.map(e=>e.year))];
+  epYears.forEach(y=>profiles[y]=profileFor(y));
+  const refProfile = profiles[epYears[0]] || profileFor(episodes.length?episodes[0].year:2026);
+  const cotaAt = ym => {
+    const y=+ym.slice(0,4), m=+ym.slice(5);
+    const ov = Q.overrides && Q.overrides[ym];
+    const prof = Q.repeat ? refProfile : (profiles[y] || null);
+    if (ov==='zero') return 0;
+    if (ov==='em_cota') return prof ? prof.plus : 0;
+    if (typeof ov==='number') return ov;
+    if (!prof){ // modo exato: ano sem episódio -> sem efeito, exceto se um episódio de outro ano invade este
+      const fr = fracMonth(y,m); if (fr>0) return refProfile.plus + fr*(qf-refProfile.plus); return 0; }
+    return prof.eff[m-1];
+  };
+
+  // projeção
+  const E = P.effects;
+  const fc = [];
+  for (let i=fcStart;i<N;i++){
+    const ym=months[i], m=+ym.slice(5);
+    const s = saz[m-1], c = climaAt(ym) ?? 0, q = cotaAt(ym);
+    const fs = E.saz?s:0, fcl = E.clima?c:0, fq = E.cota?q:0;
+    const b = base[i]; const model = b*(1+fs)*(1+fcl)*(1+fq);
+    const man = (P.manual && P.manual[ym]!=null) ? P.manual[ym] : null;
+    fc.push({ ym, i, base:b, s, c, q, sOn:fs, cOn:fcl, qOn:fq, model, manual:man, final: man!=null? man : model,
+      stepSaz: b*(1+fs), stepClima: b*(1+fs)*(1+fcl) });
+  }
+  const fcMap = new Map(fc.map(f=>[f.ym,f]));
+  const series = months.map((ym,i)=> i<=lastKnown ? total[i] : fcMap.get(ym).final);
+
+  // anuais
+  const years = {}; months.forEach((ym,i)=>{ const y=+ym.slice(0,4); const v=series[i]; if (v==null) return;
+    years[y] ??= { total:0, n:0, ibge:0, sif:0, proj:0, manual:0 }; years[y].total+=v; years[y].n++; years[y][source[i]||'proj']++; if (i>lastKnown && fcMap.get(ym).manual!=null) years[y].manual++; });
+  const nManual = fc.filter(f=>f.manual!=null).length;
+
+  return { months, N, start, total, sif, source, mm12, lastKnown, fcStart, reg, cycles, base, splice, cosine, tOf, c4, shares, saz, sazCalc, sharesFor,
+           climaAt, climaSeries, oniAt, lastOni, qf, qa, profiles, refProfile, cotaAt, fc, fcMap, series, years, fracMonth, nManual };
+}
+
+// decomposição de efeitos para um conjunto de meses (PVM)
+function decompose(M, ymList, order){
+  const rows = ymList.map(ym=>M.fcMap.get(ym)).filter(Boolean);
+  const base = sum(rows.map(r=>r.base)), model = sum(rows.map(r=>r.model)), final = sum(rows.map(r=>r.final));
+  const manual = final - model;
+  const iso = { saz: sum(rows.map(r=>r.base*r.sOn)), clima: sum(rows.map(r=>r.base*r.cOn)), cota: sum(rows.map(r=>r.base*r.qOn)) };
+  const interaction = model - base - iso.saz - iso.clima - iso.cota;
+  // sequencial na ordem dada
+  const key = {saz:'sOn', clima:'cOn', cota:'qOn'};
+  const seq = {}; let acc = rows.map(r=>r.base); let accSum = base;
+  for (const k of order){ const next = acc.map((v,j)=>v*(1+rows[j][key[k]])); const ns = sum(next); seq[k] = ns-accSum; accSum=ns; acc=next; }
+  return { n: rows.length, base, model, final, manual, iso, interaction, seq };
+}
+
+// ajuste automático do cosseno ao ciclo corrente (mínimos quadrados: A + α cos(Ct) + β sin(Ct), varredura em C)
+function fitCosine(M){
+  const vals = M.cycles[M.cycles.length-1].values; const pts=[]; vals.forEach((v,k)=>{ if (v!=null) pts.push([k+1,v]); });
+  if (pts.length<12) return null;
+  let best=null;
+  for (let C=0.03; C<=0.16; C+=0.0005){
+    // normal equations 3x3
+    let S=[[0,0,0],[0,0,0],[0,0,0]], T=[0,0,0];
+    for (const [t,y] of pts){ const x=[1,Math.cos(C*t),Math.sin(C*t)]; for(let i=0;i<3;i++){ T[i]+=x[i]*y; for(let j=0;j<3;j++) S[i][j]+=x[i]*x[j]; } }
+    const sol = solve3(S,T); if (!sol) continue;
+    let sse=0; for (const [t,y] of pts){ const yh = sol[0]+sol[1]*Math.cos(C*t)+sol[2]*Math.sin(C*t); sse+=(y-yh)**2; }
+    if (!best || sse<best.sse){ const B=Math.hypot(sol[1],sol[2]); const Dp=Math.atan2(-sol[2],sol[1]); best={sse,C,A:sol[0],B,D:((Dp%(2*Math.PI))+2*Math.PI)%(2*Math.PI), n:pts.length}; }
+  }
+  if (best) best.rmse = Math.sqrt(best.sse/best.n);
+  return best;
+}
+function solve3(A,b){ const m=A.map((r,i)=>[...r,b[i]]); for(let c=0;c<3;c++){ let p=c; for(let r=c+1;r<3;r++) if(Math.abs(m[r][c])>Math.abs(m[p][c])) p=r; if (Math.abs(m[p][c])<1e-12) return null; [m[c],m[p]]=[m[p],m[c]]; for(let r=0;r<3;r++){ if(r===c) continue; const f=m[r][c]/m[c][c]; for(let k=c;k<4;k++) m[r][k]-=f*m[c][k]; } } return m.map((r,i)=>r[3]/r[i]); }
+
+/* ===================== gráficos SVG ===================== */
+function svgEl(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
+function niceTicks(min,max,n=5){ if (!(max>min)) { max=min+1; } const span=max-min; const step0=span/n; const mag=10**Math.floor(Math.log10(step0)); const r=step0/mag; const step=(r<1.5?1:r<3?2:r<7?5:10)*mag; const lo=Math.floor(min/step)*step, hi=Math.ceil(max/step)*step; const t=[]; for(let v=lo;v<=hi+step/2;v+=step) t.push(+v.toFixed(10)); return {ticks:t,lo,hi}; }
+
+// Gráfico de linhas sobre eixo categórico comum (índices). series: [{name,color,values:[y|null], dash, width, area}]
+function cw(el,fb){ const w=el.getBoundingClientRect().width; return w>40? Math.round(w) : (fb||900); }
+function lineChart(el, cfg){
+  const W=cw(el,cfg.width), Hh=cfg.height||300, m={t:14,r:16,b:30,l:52};
+  const n=cfg.labels.length; const xs=i=>m.l+(n>1?(i*(W-m.l-m.r)/(n-1)):0);
+  let ymin=Infinity,ymax=-Infinity; cfg.series.forEach(s=>s.values.forEach(v=>{ if(v!=null){ if(v<ymin)ymin=v; if(v>ymax)ymax=v; } }));
+  if (cfg.band){ cfg.band.lo.concat(cfg.band.hi).forEach(v=>{ if(v!=null){ if(v<ymin)ymin=v; if(v>ymax)ymax=v; } }); }
+  if (cfg.yMin!=null) ymin=Math.min(ymin,cfg.yMin); if (cfg.yMax!=null) ymax=Math.max(ymax,cfg.yMax);
+  if (!isFinite(ymin)) {ymin=0;ymax=1;}
+  const pad=(ymax-ymin)*0.08||1; const {ticks,lo,hi}=niceTicks(ymin-pad,ymax+pad,5);
+  const ys=v=>m.t+(hi-v)*(Hh-m.t-m.b)/(hi-lo);
+  let g=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(cfg.aria||'gráfico')}">`;
+  // bandas
+  (cfg.bands||[]).forEach(b=>{ const x0=xs(Math.max(0,b.from)), x1=xs(Math.min(n-1,b.to)); g+=`<rect x="${x0}" y="${m.t}" width="${Math.max(0,x1-x0)}" height="${Hh-m.t-m.b}" fill="var(--accent-soft)" opacity=".55"/>`; if(b.label) g+=`<text class="lbl" x="${x0+6}" y="${m.t+12}">${esc(b.label)}</text>`; });
+  g+=`<g class="grid">`; ticks.forEach(t=>{ g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(t)}" y2="${ys(t)}"/>`; g+=`<text x="${m.l-6}" y="${ys(t)+4}" text-anchor="end">${esc(cfg.yFmt?cfg.yFmt(t):t)}</text>`; }); g+=`</g>`;
+  g+=`<line class="axis" x1="${m.l}" x2="${W-m.r}" y1="${Hh-m.b}" y2="${Hh-m.b}"/>`;
+  if (cfg.band){ const up=[],dn=[]; cfg.band.hi.forEach((v,i)=>{ if(v!=null&&cfg.band.lo[i]!=null){ up.push(`${xs(i).toFixed(1)},${ys(v).toFixed(1)}`); dn.unshift(`${xs(i).toFixed(1)},${ys(cfg.band.lo[i]).toFixed(1)}`); } }); if(up.length) g+=`<polygon points="${up.concat(dn).join(' ')}" fill="${cfg.band.color||'var(--neutral)'}" opacity="${cfg.band.opacity??0.25}"/>`; }
+  (cfg.xTicks||[]).forEach(i=>{ g+=`<text x="${xs(i)}" y="${Hh-m.b+16}" text-anchor="middle">${esc(tickLabel(cfg.labels[i]))}</text>`; g+=`<line class="axis" x1="${xs(i)}" x2="${xs(i)}" y1="${Hh-m.b}" y2="${Hh-m.b+4}"/>`; });
+  (cfg.vlines||[]).forEach(v=>{ g+=`<line x1="${xs(v.i)}" x2="${xs(v.i)}" y1="${m.t}" y2="${Hh-m.b}" stroke="var(--line-strong)" stroke-dasharray="3 4"/>`; if(v.label) g+=`<text class="lbl" x="${xs(v.i)+5}" y="${v.top? m.t+12 : Hh-m.b-6}">${esc(v.label)}</text>`; });
+  if (cfg.zeroLine && lo<0 && hi>0) g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(0)}" y2="${ys(0)}" stroke="var(--axis)"/>`;
+  cfg.series.forEach(s=>{
+    let d='', area=''; let pen=false; let firstX=null,lastX=null;
+    s.values.forEach((v,i)=>{ if(v==null){pen=false;return;} const x=xs(i),y=ys(v); d+= (pen?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' '; if(firstX==null)firstX=x; lastX=x; pen=true; });
+    if (s.area && firstX!=null){ area=d+`L${lastX} ${ys(lo)} L${firstX} ${ys(lo)} Z`; g+=`<path d="${area}" fill="${s.color}" opacity=".08"/>`; }
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width||2}" ${s.dash?`stroke-dasharray="${s.dash}"`:''} ${s.opacity!=null?`opacity="${s.opacity}"`:''} stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+    if (s.endLabel && lastX!=null){ const lastI = s.values.map((v,i)=>v!=null?i:-1).filter(i=>i>=0).pop(); g+=`<circle cx="${xs(lastI)}" cy="${ys(s.values[lastI])}" r="3.5" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`; }
+  });
+  (cfg.markers||[]).forEach(mk=>{ g+=`<circle cx="${xs(mk.i)}" cy="${ys(mk.y)}" r="4" fill="${mk.color}" stroke="var(--surface)" stroke-width="2"/>`; });
+  g+=`<line class="xh" x1="0" x2="0" y1="${m.t}" y2="${Hh-m.b}" stroke="var(--fg-2)" stroke-width="1" style="display:none"/>`;
+  g+=`<rect class="hit" x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${Hh-m.t-m.b}" fill="transparent"/></svg>`;
+  el.innerHTML = g + `<div class="tip"></div>`;
+  const svg=el.querySelector('svg'), tip=el.querySelector('.tip'), xh=el.querySelector('.xh'), hit=el.querySelector('.hit');
+  const move=ev=>{ const r=svg.getBoundingClientRect(); const px=(ev.clientX-r.left)/r.width*W; let i=Math.round((px-m.l)/((W-m.l-m.r)/(n-1))); i=Math.max(0,Math.min(n-1,i));
+    xh.setAttribute('x1',xs(i)); xh.setAttribute('x2',xs(i)); xh.style.display='';
+    let rows=cfg.series.map(s=>s.values[i]!=null?`<div class="row"><span><i style="background:${s.color}"></i>${esc(s.name)}</span><span>${esc(cfg.tipFmt?cfg.tipFmt(s.values[i],i):fmtInt(s.values[i]))}</span></div>`:'').join('');
+    if (cfg.band && cfg.band.lo[i]!=null) rows+=`<div class="row"><span><i style="background:${cfg.band.color||'var(--neutral)'}"></i>${esc(cfg.band.name||'mín–máx')}</span><span>${esc((cfg.tipFmt?cfg.tipFmt(cfg.band.lo[i],i):fmtInt(cfg.band.lo[i]))+' – '+(cfg.tipFmt?cfg.tipFmt(cfg.band.hi[i],i):fmtInt(cfg.band.hi[i])))}</span></div>`;
+    if(!rows){tip.style.display='none';return;}
+    tip.innerHTML=`<b>${esc(cfg.tipTitle?cfg.tipTitle(i):cfg.labels[i])}</b>${rows}`; tip.style.display='block';
+    const lx=xs(i)/W*r.width; tip.style.left=Math.max(70,Math.min(r.width-70,lx))+'px'; tip.style.top=(ev.clientY-r.top)+'px'; };
+  hit.addEventListener('pointermove',move); hit.addEventListener('pointerleave',()=>{tip.style.display='none';xh.style.display='none';});
+  return { xs, ys, W, Hh, m, n, svg, lo, hi };
+}
+
+// Barras (positivas/negativas) sobre categorias
+function barChart(el, cfg){
+  const W=cw(el,cfg.width), Hh=cfg.height||240, m={t:14,r:12,b:30,l:52};
+  const n=cfg.values.length; const bw=(W-m.l-m.r)/n;
+  let vmin=Math.min(0,...cfg.values.filter(v=>v!=null)), vmax=Math.max(0,...cfg.values.filter(v=>v!=null));
+  const pad=(vmax-vmin)*0.1||1; const {ticks,lo,hi}=niceTicks(vmin-(vmin<0?pad:0),vmax+pad,5);
+  const ys=v=>m.t+(hi-v)*(Hh-m.t-m.b)/(hi-lo);
+  let g=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(cfg.aria||'barras')}"><g class="grid">`;
+  ticks.forEach(t=>{ g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(t)}" y2="${ys(t)}"/><text x="${m.l-6}" y="${ys(t)+4}" text-anchor="end">${esc(cfg.yFmt?cfg.yFmt(t):t)}</text>`; });
+  g+=`</g><line class="axis" x1="${m.l}" x2="${W-m.r}" y1="${ys(0)}" y2="${ys(0)}"/>`;
+  cfg.values.forEach((v,i)=>{ const x=m.l+i*bw+bw*0.18, w=bw*0.64; const y0=ys(0), y1=ys(v??0); const top=Math.min(y0,y1), h=Math.max(1,Math.abs(y1-y0));
+    const col = cfg.color ? (typeof cfg.color==='function'?cfg.color(v,i):cfg.color) : (v>=0?'var(--pos)':'var(--neg)');
+    g+=`<rect class="bar" data-i="${i}" x="${x}" y="${top}" width="${w}" height="${h}" rx="3" fill="${col}"/>`;
+    if (n<=24) g+=`<text x="${x+w/2}" y="${Hh-m.b+16}" text-anchor="middle">${esc(cfg.labels[i])}</text>`; });
+  g+=`<rect class="hit" x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${Hh-m.t-m.b}" fill="transparent"/></svg>`;
+  el.innerHTML=g+`<div class="tip"></div>`;
+  const svg=el.querySelector('svg'), tip=el.querySelector('.tip'), hit=el.querySelector('.hit');
+  hit.addEventListener('pointermove',ev=>{ const r=svg.getBoundingClientRect(); const px=(ev.clientX-r.left)/r.width*W; let i=Math.floor((px-m.l)/bw); i=Math.max(0,Math.min(n-1,i));
+    tip.innerHTML=`<b>${esc(cfg.tipTitle?cfg.tipTitle(i):cfg.labels[i])}</b><div class="row"><span>${esc(cfg.name||'')}</span><span>${esc(cfg.tipFmt?cfg.tipFmt(cfg.values[i],i):cfg.values[i])}</span></div>`; tip.style.display='block';
+    tip.style.left=((m.l+i*bw+bw/2)/W*r.width)+'px'; tip.style.top=(ev.clientY-r.top)+'px'; });
+  hit.addEventListener('pointerleave',()=>tip.style.display='none');
+}
+
+// Cascata (waterfall): steps [{label, value, kind:'total'|'delta'}]
+function waterfall(el, cfg){
+  const W=cw(el,cfg.width), Hh=cfg.height||300, m={t:18,r:12,b:44,l:56};
+  const steps=cfg.steps; const n=steps.length; const bw=(W-m.l-m.r)/n;
+  let run=0; const bars=steps.map(s=>{ if(s.kind==='total'){ run=s.value; return {lo:0,hi:s.value,v:s.value,kind:'total',label:s.label}; } const a=run, b=run+s.value; run=b; return {lo:Math.min(a,b),hi:Math.max(a,b),v:s.value,kind:'delta',label:s.label}; });
+  const vmin=Math.min(...bars.map(b=>b.kind==='total'?b.v:b.lo)), vmax=Math.max(...bars.map(b=>b.hi)); const pad=(vmax-vmin)*0.12||1;
+  const {ticks,lo,hi}=niceTicks(vmin-pad, vmax+pad*1.6,5);
+  const ys=v=>m.t+(hi-v)*(Hh-m.t-m.b)/(hi-lo);
+  let g=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="cascata de efeitos"><g class="grid">`;
+  ticks.forEach(t=>{ g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(t)}" y2="${ys(t)}"/><text x="${m.l-6}" y="${ys(t)+4}" text-anchor="end">${esc(cfg.yFmt(t))}</text>`; });
+  g+=`</g>`;
+  bars.forEach((b,i)=>{ const x=m.l+i*bw+bw*0.2, w=bw*0.6; const y=ys(b.hi), h=Math.max(1.5,ys(b.lo)-ys(b.hi));
+    const col=b.kind==='total'?'var(--neutral)':(b.v>=0?'var(--pos)':'var(--neg)');
+    if (b.kind==='total'){ const yb=Hh-m.b; g+=`<rect x="${x}" y="${y}" width="${w}" height="${Math.max(1.5,yb-y)}" rx="3" fill="${col}"/><path d="M${x-2} ${yb-10} l${w/3} -4 l${w/3} 4 l${w/3} -4 l4 0" stroke="var(--surface)" stroke-width="3" fill="none"/>`; }
+    else g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${col}"/>`;
+    if (i<n-1){ const yc=ys(b.kind==='total'?b.v:(b.v>=0?b.hi:b.lo)); g+=`<line x1="${x+w}" x2="${x+bw}" y1="${yc}" y2="${yc}" stroke="var(--line-strong)" stroke-dasharray="2 3"/>`; }
+    const lab = b.kind==='total'? cfg.yFmt(b.v) : (b.v>=0?'+':'−')+cfg.yFmt(Math.abs(b.v));
+    g+=`<text class="lbl" x="${x+w/2}" y="${y-5}" text-anchor="middle">${esc(lab)}</text>`;
+    g+=`<text x="${x+w/2}" y="${Hh-m.b+16}" text-anchor="middle">${esc(b.label)}</text>`;
+    if (b.pct!=null||cfg.pct) g+=`<text x="${x+w/2}" y="${Hh-m.b+30}" text-anchor="middle">${esc(b.kind==='total'?'':fmtPct(b.v/cfg.pctBase,1))}</text>`;
+  });
+  g+=`</svg>`; el.innerHTML=g;
+}
+
+/* ===================== edição por duplo clique ===================== */
+function ed(text, kind, raw){ return `<span class="ed" data-ed="${kind}" data-raw="${raw!=null?raw:''}" title="Duplo clique para editar">${text}</span>`; }
+document.addEventListener('dblclick', e=>{ const el=e.target.closest && e.target.closest('.ed'); if(!el || el.querySelector('input')) return; e.preventDefault(); startEdit(el); });
+function startEdit(el){ const kind=el.dataset.ed; const inp=document.createElement('input'); inp.type='text'; inp.inputMode='decimal'; inp.value=el.dataset.raw; inp.className='ed-input'; inp.style.width=Math.max(64, el.offsetWidth+18)+'px'; inp.setAttribute('aria-label','editar valor'); el.textContent=''; el.appendChild(inp); inp.focus(); inp.select();
+  let done=false; const commit=()=>{ if(done) return; done=true; applyEdit(kind, parseNum(inp.value), inp.value.trim()===''); };
+  inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); commit(); } else if(ev.key==='Escape'){ done=true; render(); } });
+  inp.addEventListener('blur',commit); }
+function applyEdit(kind, v, empty){
+  const [k,a,b]=kind.split(':'); const heads=x=> x<20000? x*1000 : x;
+  if (k==='manual'){ state.params.manual ??= {}; if (empty||v==null) delete state.params.manual[a]; else state.params.manual[a]=Math.round(heads(v)); }
+  else if (k==='hist'){ const H=state.data.hist; const i=H.months.indexOf(b); if(i<0){ render(); return; } H[a][i]= (empty||v==null)? null : Math.round(heads(v)); }
+  else if (k==='year'){ if(v==null){ render(); return; } const y=+a; const target= v<1e6? v*1000 : v; const rows=M.fc.filter(f=>yearOf(f.ym)===y); if(!rows.length){ toast('Esse ano não tem meses projetados para ajustar.'); render(); return; } const cur=sum(rows.map(r=>r.final)); const fixed=M.years[y].total-cur; const factor=(target-fixed)/cur; if(!(factor>0)){ toast('Total inviável para os meses projetados.'); render(); return; } state.params.manual ??= {}; rows.forEach(r=>state.params.manual[r.ym]=Math.round(r.final*factor)); }
+  else if (k==='param'){ if(v==null){ render(); return; } setPath(state.params, a, +(v*(parseFloat(b)||1)).toPrecision(12)); }
+  else if (k==='saz'){ state.params.saz.manual ??= new Array(12).fill(null); state.params.saz.manual[+a]= (empty||v==null)? null : v/100; }
+  else if (k==='cyc'){ if(v==null){ render(); return; } const c=state.params.cycle; if(a==='vale') c.B=Math.max(20000,Math.round(c.A-heads(v))); else if(a==='pico') c.B=Math.max(20000,Math.round(heads(v)-c.A)); else if(a==='per'){ if(v>3) c.C=+(2*Math.PI/v).toFixed(4); } else if(a==='dur'){ if(v>M.tOf(M.lastKnown)){ const g=cycleGeom(); const s=(v-g.tNow)/(g.tMin-g.tNow); const C=+(c.C/s).toFixed(4); c.D=+normAngle((c.C*g.tNow+c.D)-C*g.tNow).toFixed(3); c.C=C; } } }
+  else if (k==='oni'){ const O=state.data.oni; const i=O.months.indexOf(a); if(i>=0) O.values[i]= (empty||v==null)? null : v; }
+  markDirty(); render();
+}
+/* ===================== persistência ===================== */
+const LS_KEY='previsao-abate-v1';
+let dbRef=null, dlCap=null, saveTimer=null;
+function lsGet(){ try{ const s=localStorage.getItem(LS_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function lsSet(v){ try{ localStorage.setItem(LS_KEY, JSON.stringify(v)); }catch(e){} }
+async function initCaps(){
+  try{ if (window.claude?.use){ const db = await window.claude.use('db'); if (db){ dbRef = db.doc('model/state'); } dlCap = await window.claude.use('downloads'); } }catch(e){}
+  let loaded=null, origin='default';
+  if (dbRef){ try{ const snap = await dbRef.get(); if (snap.exists){ loaded = snap.data(); origin='nuvem'; } }catch(e){} }
+  if (!loaded){ const l=lsGet(); if (l){ loaded=l; origin='navegador'; } }
+  if (loaded && loaded.params && loaded.data){ state = migrate(loaded); state.meta.origin=origin; render(); }
+  updateSaveChip();
+}
+function migrate(s){ const base = { data: clone(DEFAULT_DATA), params: clone(DEFAULT_PARAMS), scenarios:[], meta:{} }; const out = {...base, ...s}; out.params = deepMerge(clone(DEFAULT_PARAMS), s.params||{}); out.data = {...clone(DEFAULT_DATA), ...(s.data||{})}; out.meta = s.meta||{}; out.scenarios = s.scenarios||[]; out.vintages = s.vintages||[]; return out; }
+function deepMerge(a,b){ for (const k in b){ if (b[k] && typeof b[k]==='object' && !Array.isArray(b[k]) && a[k] && typeof a[k]==='object' && !Array.isArray(a[k])) deepMerge(a[k],b[k]); else a[k]=b[k]; } return a; }
+async function saveState(){
+  state.meta.savedAt = new Date().toISOString(); state.meta.origin = dbRef?'nuvem':'navegador';
+  lsSet(state);
+  if (dbRef){ try{ await dbRef.set(clone(state)); toast('Salvo na nuvem (compartilhado entre seus dispositivos).'); }catch(e){ toast('Salvo neste navegador. A nuvem recusou a gravação: '+(e.code||e.message||'')); state.meta.origin='navegador'; } }
+  else toast('Salvo neste navegador.');
+  updateSaveChip();
+}
+function markDirty(){ state.meta.dirty=true; updateSaveChip(); }
+function updateSaveChip(){ const c=$('#saveChip'), t=$('#saveChipText'); c.classList.remove('ok','warn');
+  if (state.meta.dirty){ c.classList.add('warn'); t.textContent='Alterações não salvas'; }
+  else if (state.meta.savedAt){ c.classList.add('ok'); t.textContent=`Salvo (${state.meta.origin}) · ${new Date(state.meta.savedAt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`; }
+  else t.textContent='Padrão da planilha'; }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2800); }
+async function download(filename, text, mime='text/csv'){
+  if (dlCap){ try{ await dlCap.save({filename, data:text}); return; }catch(e){ if (e.code==='cancelled'||e.code==='declined') return; } }
+  if (!window.claude){ try{ const blob=new Blob([text],{type:mime}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); return; }catch(e){} }
+  if (typeof text!=='string'){ toast('O download de arquivos binários não está disponível nesta visualização.'); return; }
+  openModal(`<h2>${esc(filename)}</h2><p class="sub">O download direto não está disponível nesta visualização. Copie o conteúdo abaixo.</p><textarea style="min-height:260px;font-family:var(--font-num);font-size:12px;width:100%;border:1px solid var(--line-strong);border-radius:8px;padding:8px">${esc(text)}</textarea><div class="toolbar"><button class="btn primary" id="mCopy">Copiar</button><button class="btn" id="mClose">Fechar</button></div>`);
+  $('#mCopy').onclick=async()=>{ const ta=$('#modalBox textarea'); try{ await navigator.clipboard.writeText(ta.value); toast('Copiado.'); }catch(e){ ta.select(); } };
+  $('#mClose').onclick=closeModal;
+}
+function openModal(html){ $('#modalBox').innerHTML=html; $('#modal').classList.add('open'); }
+function closeModal(){ $('#modal').classList.remove('open'); }
+$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+
+/* ===================== navegação ===================== */
+const VIEWS = [
+  {id:'painel', k:'1', name:'Painel'},
+  {id:'efeitos', k:'2', name:'Decomposição'},
+  {id:'cenarios', k:'3', name:'Cenários'},
+  {id:'acuracia', k:'A', name:'Previsto × Realizado'},
+  {group:'Blocos do modelo'},
+  {id:'ciclo', k:'4', name:'Ciclo pecuário'},
+  {id:'sazonalidade', k:'5', name:'Sazonalidade'},
+  {id:'clima', k:'6', name:'Clima (ENSO)'},
+  {id:'cota', k:'7', name:'Cota China'},
+  {group:'Base'},
+  {id:'dados', k:'8', name:'Dados e regressão SIF'},
+  {id:'sobre', k:'9', name:'Como o modelo funciona'},
+];
+function renderNav(){ $('#nav').innerHTML = VIEWS.map(v=> v.group? `<div class="group">${v.group}</div>` : `<a href="#${v.id}" class="${ui.view===v.id?'active':''}"><span class="k">${v.k}</span>${v.name}</a>`).join(''); }
+window.addEventListener('hashchange',()=>{ const h=location.hash.replace('#',''); if (VIEWS.some(v=>v.id===h)){ ui.view=h; render(); window.scrollTo(0,0); } });
+
+/* ===================== render ===================== */
+let M=null;
+function renderStrip(){
+  const y0 = yearOf(M.months[M.fcStart]); const yrs=[y0, y0+1];
+  let h=`<table><thead><tr><th></th>${MESES.map(m=>`<th>${m}</th>`).join('')}<th>TOTAL</th></tr></thead><tbody>`;
+  yrs.forEach(y=>{ h+=`<tr><td class="y">${y}</td>`; for(let m=1;m<=12;m++){ const ym=`${y}-${String(m).padStart(2,'0')}`; const i=M.months.indexOf(ym); const v=i>=0?M.series[i]:null; const f=M.fcMap.get(ym); const cls=i<0||v==null?'':(i>M.lastKnown?(f&&f.manual!=null?'proj manual':'proj'):srcClass(M.source[i])); const kind = i<0||v==null? null : (i>M.lastKnown? `manual:${ym}` : `hist:total:${ym}`); h+=`<td class="${cls}" title="${ym}">${kind?ed(fmtMil(v,0),kind,(v/1000).toFixed(1)):fmtMil(v,0)}</td>`; } const yt=M.years[y]?.total; h+=`<td class="tot">${yt!=null?ed(fmtMil(yt,0),`year:${y}`,(yt/1000).toFixed(0)):'–'}</td></tr>`; });
+  $('#strip').innerHTML=h+'</tbody></table>';
+}
+function render(){
+  M = compute(state);
+  renderNav(); renderStrip();
+  const v = $('#view');
+  const fn = { painel:viewPainel, efeitos:viewEfeitos, cenarios:viewCenarios, acuracia:viewAcuracia, ciclo:viewCiclo, sazonalidade:viewSaz, clima:viewClima, cota:viewCota, dados:viewDados, sobre:viewSobre }[ui.view] || viewPainel;
+  v.innerHTML = fn.html();
+  bindCommon(v);
+  fn.after && fn.after(v);
+  updateSaveChip();
+}
+// Inputs com data-path atualizam state.params e re-renderizam
+function bindCommon(root){
+  $$('[data-path]',root).forEach(inp=>{
+    inp.addEventListener('change',()=>{ let val = inp.type==='checkbox'? inp.checked : inp.value; if (inp.dataset.type==='number'){ val = parseFloat(String(val).replace(',','.')); if (isNaN(val)) return; } if (inp.dataset.type==='int'){ val=parseInt(val); if(isNaN(val)) return; }
+      setPath(state.params, inp.dataset.path, val); markDirty(); render(); });
+  });
+  $$('[data-step]',root).forEach(b=>b.addEventListener('click',()=>{ const [path,delta]=b.dataset.step.split('|'); const cur=getPath(state.params,path); const d=parseFloat(delta); const nv=+(cur+d).toPrecision(12); setPath(state.params,path,nv); markDirty(); render(); }));
+  $$('[data-ui]',root).forEach(b=>b.addEventListener('click',()=>{ const [k,val]=b.dataset.ui.split('|'); ui[k]= k==='pvmOrder'? val.split(',') : (k==='scenYear'? +val : val); render(); }));
+}
+function setPath(o,p,v){ const ks=p.split('.'); let c=o; for (let i=0;i<ks.length-1;i++){ c[ks[i]] ??= {}; c=c[ks[i]]; } c[ks[ks.length-1]]=v; }
+function getPath(o,p){ return p.split('.').reduce((c,k)=>c?.[k],o); }
+function numField(label, path, val, step, hint, opts={}){ return `<div class="field"><label>${label}</label><div class="stepper"><button type="button" data-step="${path}|${-step}" aria-label="diminuir">−</button><input type="number" step="${step}" value="${val}" data-path="${path}" data-type="number" id="f_${path.replace(/\./g,'_')}" ${opts.min!=null?`min="${opts.min}"`:''}><button type="button" data-step="${path}|${step}" aria-label="aumentar">+</button></div>${hint?`<span class="hint">${hint}</span>`:''}</div>`; }
+function seg(uiKey, options){ return `<div class="seg">${options.map(([v,l])=>`<button type="button" data-ui="${uiKey}|${v}" class="${ui[uiKey]===v?'on':''}">${l}</button>`).join('')}</div>`; }
+function monthTicks(labels){ return labels.map((l,i)=>l.endsWith('-01')?i:-1).filter(i=>i>=0); }
+const tickLabel = l => /^\d{4}-\d{2}$/.test(l) ? ymLabel(l) : l;
+function yearOf(ym){ return +ym.slice(0,4); }
+const srcClass = s => s==='sif'?'sif':s==='proj'?'proj':'';
+
+/* ---------- Painel ---------- */
+const viewPainel = {
+  html(){
+    const yrs = Object.keys(M.years).map(Number).filter(y=>y>=2023).sort();
+    if (!ui.mmYears){ const y0=yearOf(M.months[M.fcStart]); ui.mmYears=[y0-1,y0,y0+1].filter(y=>M.years[y]); }
+    const lastY = yrs[yrs.length-1];
+    const kpis = yrs.filter(y=>y>=2025).map(y=>{ const Y=M.years[y], prev=M.years[y-1]; const yoy = prev? Y.total/prev.total-1 : null;
+      const srcTxt = Y.proj? `${Y.ibge} IBGE · ${Y.sif} via SIF · ${Y.proj} projetados` : (Y.sif? `${Y.ibge} IBGE · ${Y.sif} via SIF` : 'realizado IBGE');
+      return `<div class="card kpi"><div class="label">Abate ${y}</div><div class="value">${Y.proj?ed(fmtMil(Y.total,0),`year:${y}`,(Y.total/1000).toFixed(0)):fmtMil(Y.total,0)}<small>mil cab.</small></div><div class="delta ${yoy>0?'up':'down'}">vs ${y-1}: <b>${fmtPct(yoy)}</b></div><div class="foot">${srcTxt}</div></div>`; }).join('');
+    const fcStartYm = M.months[M.fcStart];
+    return `<div class="page-head"><div><h2>Painel</h2><p>Abate total de bovinos no Brasil (cabeças). O histórico vem do IBGE; os três meses mais recentes são estimados pela regressão com o abate SIF; dali em diante a projeção combina ciclo, sazonalidade, clima e cota China. Projeção a partir de <b>${ymLabel(fcStartYm)}</b> até ${ymLabel(M.months[M.N-1])}.</p></div>
+      <div class="toolbar">${['saz','clima','cota'].map(k=>`<label class="toggle"><input type="checkbox" data-path="effects.${k}" ${state.params.effects[k]?'checked':''} id="eff_${k}"> ${({saz:'Sazonalidade',clima:'Clima',cota:'Cota China'})[k]}</label>`).join('')}</div></div>
+      <div class="grid kpi">${kpis}</div>
+      <div class="card"><h3>Abate mensal: histórico e projeção</h3><p class="sub">Linha contínua = IBGE; segmento itálico = estimativa via SIF; tracejado = projeção. A linha fina é a média móvel de 12 meses (observada e, no futuro, o cosseno do ciclo).</p><div class="chart" id="chMain"></div>
+        <div class="legend"><span><i style="background:var(--s-hist)"></i>Realizado (IBGE / est. SIF)</span><span><i class="dash" style="color:var(--s-proj)"></i>Projeção</span><span><i style="background:var(--s-cycle)"></i>Média móvel 12m (ciclo)</span></div></div>
+      <div class="card"><h3>Previsão de abate (mil cab.): sombra mín–máx</h3><p class="sub">Faixa cinza = mínimo e máximo de cada mês na janela escolhida; tracejado = média da janela. Linhas = anos selecionados (realizado, estimado via SIF e projetado na mesma linha).</p>
+        <div class="toolbar" style="margin-bottom:8px"><span class="hint">Anos:</span>${mmYearsAll().map(y=>`<label class="toggle" style="font-size:12.5px"><input type="checkbox" data-mmy="${y}" ${ui.mmYears.includes(y)?'checked':''}> ${y}</label>`).join('')}<div class="sep"></div><span class="hint">Faixa:</span><select id="mmBand0" style="border:1px solid var(--line-strong);border-radius:6px;padding:3px 6px">${mmYearsAll().filter(y=>y<=yrs[yrs.length-1]).map(y=>`<option ${ui.mmBand[0]===y?'selected':''}>${y}</option>`).join('')}</select><span class="hint">a</span><select id="mmBand1" style="border:1px solid var(--line-strong);border-radius:6px;padding:3px 6px">${mmYearsAll().map(y=>`<option ${ui.mmBand[1]===y?'selected':''}>${y}</option>`).join('')}</select></div>
+        <div class="chart" id="chMinMax"></div><div class="legend" id="mmLegend"></div></div>
+      <div class="card"><div class="page-head" style="margin-bottom:8px"><h3 style="margin:0">Tabela mensal (mil cabeças)</h3><div class="toolbar">${M.nManual?`<span class="chip warn">${M.nManual} ${M.nManual>1?'meses ajustados à mão':'mês ajustado à mão'}</span><button class="btn small" id="clearManual">Limpar ajustes manuais</button>`:'<span class="hint">Duplo clique num mês projetado para fixá-lo à mão; apague o valor para voltar ao modelo.</span>'}</div></div><p class="sub">Equivalente à aba “Tabela/Min Max”. Duplo clique em qualquer número para editar: meses projetados viram ajuste manual, meses realizados alteram o dado do IBGE, e um total anual redistribui a diferença proporcionalmente pelos meses projetados. Cores: <span class="pill ibge">IBGE</span>, <span class="pill sif">SIF</span> estimado, <span class="pill proj">PROJ</span>; sublinhado = fixado à mão.</p><div class="tbl-wrap">${monthlyTable(yrs,true)}</div></div>
+      <div class="grid two"><div class="card"><h3>Semestres</h3><div class="tbl-wrap">${semesterTable(yrs)}</div></div>
+      <div class="card"><h3>Conferência com a planilha</h3><p class="sub">Diferença entre esta projeção e a coluna “Abate projetado” da aba Série Temporal, com os parâmetros padrão.</p><div class="tbl-wrap">${excelCheckTable()}</div></div></div>`;
+  },
+  after(root){
+    const cm=$('#clearManual'); if (cm) cm.onclick=()=>{ state.params.manual={}; markDirty(); render(); };
+    $$('[data-mmy]',root).forEach(c=>c.onchange=()=>{ const y=+c.dataset.mmy; ui.mmYears = c.checked? [...ui.mmYears,y].sort() : ui.mmYears.filter(x=>x!==y); render(); });
+    $('#mmBand0').onchange=e=>{ ui.mmBand[0]=+e.target.value; render(); }; $('#mmBand1').onchange=e=>{ ui.mmBand[1]=+e.target.value; render(); };
+    drawMinMax($('#chMinMax'), $('#mmLegend'));
+    const i0 = M.months.indexOf('2019-01'); const labels=M.months.slice(i0);
+    const hist = M.series.slice(i0).map((v,i)=> (i0+i)<=M.lastKnown? v : null);
+    const proj = M.series.slice(i0).map((v,i)=> (i0+i)>=M.lastKnown? v : null);
+    const mm = M.months.slice(i0).map((_,i)=> (i0+i)<=M.lastKnown ? M.mm12[i0+i] : M.base[i0+i]);
+    lineChart($('#chMain'), { labels, xTicks:monthTicks(labels), yFmt:v=>fmtMil(v,0), tipFmt:v=>fmtMil(v,0)+' mil', tipTitle:i=>ymLabel(labels[i]),
+      bands:[{from:M.fcStart-i0,to:labels.length-1,label:'projeção'}], height:320, width:1000,
+      series:[ {name:'Realizado',color:'var(--s-hist)',values:hist,width:2,area:true}, {name:'Projeção',color:'var(--s-proj)',values:proj,dash:'5 4',width:2}, {name:'MM12 / ciclo',color:'var(--s-cycle)',values:mm,width:1.5} ] });
+  }
+};
+function mmYearsAll(){ return Object.keys(M.years).map(Number).filter(y=>y>=2015).sort(); }
+function yearMonths(y){ return MESES.map((_,k)=>{ const i=M.months.indexOf(`${y}-${String(k+1).padStart(2,'0')}`); return i>=0? M.series[i] : null; }); }
+function drawMinMax(el, legendEl, custom){
+  const [b0,b1]=ui.mmBand; const lo=[],hi=[],avg=[];
+  for (let k=0;k<12;k++){ const vals=[]; for(let y=b0;y<=b1;y++){ const i=M.months.indexOf(`${y}-${String(k+1).padStart(2,'0')}`); if(i>=0&&i<=M.lastKnown&&M.series[i]!=null) vals.push(M.series[i]); } lo.push(vals.length?Math.min(...vals):null); hi.push(vals.length?Math.max(...vals):null); avg.push(vals.length?sum(vals)/vals.length:null); }
+  const cols=['var(--s-hist)','var(--fg)','var(--s-proj)','var(--s-5)','var(--s-4)'];
+  const series = custom ? [...custom] : ui.mmYears.map((y,k)=>({name:String(y),color:cols[k%cols.length],values:yearMonths(y),width:k===ui.mmYears.length-1?2.5:2,endLabel:true}));
+  series.push({name:`Média ${b0}–${b1}`,color:'var(--s-cycle)',values:avg,dash:'5 4',width:1.5});
+  lineChart(el,{labels:MESES,xTicks:MESES.map((_,i)=>i),yFmt:v=>fmtMil(v,0),tipFmt:v=>fmtMil(v,0)+' mil',height:320,width:1000,series,band:{lo,hi,name:`Mín–máx ${b0}–${b1}`,color:'var(--neutral)',opacity:.22}});
+  if (legendEl) legendEl.innerHTML=`<span><i class="sq" style="background:var(--neutral);opacity:.4"></i>Mín–máx ${b0}–${b1}</span>`+series.map(s=>`<span><i class="${s.dash?'dash':''}" style="${s.dash?'color:'+s.color:'background:'+s.color}"></i>${esc(s.name)}</span>`).join('');
+}
+function monthlyTable(yrs, editable){
+  const cell=(y,m)=>{ const ym=`${y}-${String(m).padStart(2,'0')}`; const i=M.months.indexOf(ym); if(i<0||M.series[i]==null) return {v:null}; return {v:M.series[i], s: i>M.lastKnown?'proj':M.source[i]}; };
+  let h=`<table><thead><tr><th class="l">Mês</th>${yrs.map(y=>`<th>${y}</th>`).join('')}${yrs.slice(1).map(y=>`<th>${String(y).slice(2)}/${String(y-1).slice(2)}</th>`).join('')}</tr></thead><tbody>`;
+  for (let m=1;m<=12;m++){ const vals=yrs.map((y)=>({...cell(y,m), ym:`${y}-${String(m).padStart(2,'0')}`})); h+=`<tr><td class="l">${MESES[m-1]}</td>${vals.map(c=>{ if (c.v==null) return '<td>–</td>'; if (c.s==='proj'){ const f=M.fcMap.get(c.ym); return `<td class="proj ${f.manual!=null?'manual':''}" title="modelo: ${fmtMil(f.model)} mil">${ed(fmtMil(c.v),`manual:${c.ym}`,(c.v/1000).toFixed(1))}</td>`; } return `<td class="${srcClass(c.s)}">${ed(fmtMil(c.v),`hist:total:${c.ym}`,(c.v/1000).toFixed(1))}</td>`; }).join('')}${yrs.slice(1).map((y,k)=>{ const a=vals[k+1].v,b=vals[k].v; const r=a&&b?a/b-1:null; return `<td class="${r<0?'neg':''}">${fmtPct(r)}</td>`; }).join('')}</tr>`; }
+  const tot=yrs.map(y=>M.years[y]?.total);
+  h+=`<tr class="total"><td class="l">Total</td>${tot.map((t,k)=>`<td>${t!=null&&M.years[yrs[k]].proj?ed(fmtMil(t,0),`year:${yrs[k]}`,(t/1000).toFixed(0)):fmtMil(t,0)}</td>`).join('')}${yrs.slice(1).map((y,k)=>{ const r=tot[k+1]/tot[k]-1; return `<td class="${r<0?'neg':''}">${fmtPct(r)}</td>`; }).join('')}</tr></tbody></table>`; return h;
+}
+function semesterTable(yrs){
+  const semi=(y,h)=>{ let s=0,n=0; for(let m=h===1?1:7;m<=(h===1?6:12);m++){ const i=M.months.indexOf(`${y}-${String(m).padStart(2,'0')}`); if(i>=0&&M.series[i]!=null){s+=M.series[i];n++;} } return n===6?s:null; };
+  let h=`<table><thead><tr><th class="l">Período</th>${yrs.map(y=>`<th>${y}</th>`).join('')}${yrs.slice(1).map(y=>`<th>${String(y).slice(2)}/${String(y-1).slice(2)}</th>`).join('')}</tr></thead><tbody>`;
+  for (const s of [1,2]){ const v=yrs.map(y=>semi(y,s)); h+=`<tr><td class="l">${s}º semestre</td>${v.map(x=>`<td>${fmtMil(x,0)}</td>`).join('')}${yrs.slice(1).map((y,k)=>{ const r=v[k+1]&&v[k]?v[k+1]/v[k]-1:null; return `<td class="${r<0?'neg':''}">${fmtPct(r)}</td>`; }).join('')}</tr>`; }
+  return h+'</tbody></table>';
+}
+function excelCheckTable(){
+  const keys=Object.keys(EXCEL_REF); let maxd=0; const rows=keys.map(ym=>{ const i=M.months.indexOf(ym); const v=i>=0?M.series[i]:null; const d=v!=null?v-EXCEL_REF[ym]:null; if(d!=null) maxd=Math.max(maxd,Math.abs(d)); return {ym,v,ref:EXCEL_REF[ym],d}; });
+  const show = rows.filter(r=>Math.abs(r.d||0)>50);
+  let h=`<p class="sub" style="margin-top:0">Maior diferença absoluta: <b class="num">${fmtInt(maxd)}</b> cabeças em ${rows.length} meses.</p>`;
+  if (!show.length) return h+`<p class="note">Todos os meses coincidem com a planilha (diferenças apenas de arredondamento).</p>`;
+  h+=`<table><thead><tr><th class="l">Mês</th><th>App</th><th>Planilha</th><th>Dif.</th></tr></thead><tbody>${show.map(r=>`<tr><td class="l">${ymLabel(r.ym)}</td><td>${fmtInt(r.v)}</td><td>${fmtInt(r.ref)}</td><td class="${r.d<0?'neg':'posv'}">${fmtInt(r.d)}</td></tr>`).join('')}</tbody></table>`;
+  return h;
+}
+
+/* ---------- Decomposição de efeitos (PVM) ---------- */
+const viewEfeitos = {
+  html(){
+    const fcYears=[...new Set(M.fc.map(f=>yearOf(f.ym)))];
+    const periods=[...fcYears.map(y=>[String(y),String(y)]), ...M.fc.slice(0,15).map(f=>[f.ym, ymLabel(f.ym)])];
+    if (!periods.some(p=>p[0]===ui.pvmPeriod)) ui.pvmPeriod=periods[0][0];
+    const ymList = M.fc.filter(f=> f.ym===ui.pvmPeriod || yearOf(f.ym)===+ui.pvmPeriod).map(f=>f.ym);
+    const d = decompose(M, ymList, ui.pvmOrder);
+    const names={saz:'Sazonalidade',clima:'Clima (ENSO)',cota:'Cota China'};
+    const isYear = /^\d{4}$/.test(ui.pvmPeriod);
+    const Y = isYear? M.years[+ui.pvmPeriod] : null;
+    const kp = (l,v,sub)=>`<div class="card kpi"><div class="label">${l}</div><div class="value">${fmtMil(v,0)}<small>mil</small></div>${sub?`<div class="foot">${sub}</div>`:''}</div>`;
+    const manualRow = d.manual ? `<tr><td class="l">Ajuste manual</td><td class="${d.manual<0?'neg':'posv'}">${fmtMil(d.manual,0)}</td><td>${fmtPct(d.manual/d.base)}</td><td class="${d.manual<0?'neg':'posv'}">${fmtMil(d.manual,0)}</td><td>${fmtPct(d.manual/d.base)}</td></tr>` : '';
+    const effRows = ['saz','clima','cota'].map(k=>`<tr><td class="l"><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${d.iso[k]>=0?'var(--pos)':'var(--neg)'};margin-right:6px"></span>${names[k]}${!state.params.effects[k]?' <span class="pill" style="background:var(--warn-soft);color:var(--warn)">desligado</span>':''}</td><td class="${d.iso[k]<0?'neg':'posv'}">${fmtMil(d.iso[k],0)}</td><td class="${d.iso[k]<0?'neg':'posv'}">${fmtPct(d.iso[k]/d.base)}</td><td class="${d.seq[k]<0?'neg':'posv'}">${fmtMil(d.seq[k],0)}</td><td class="${d.seq[k]<0?'neg':'posv'}">${fmtPct(d.seq[k]/d.base)}</td></tr>`).join('');
+    return `<div class="page-head"><div><h2>Decomposição</h2><p>Quanto cada bloco do modelo acrescenta ou retira da base do ciclo (MM12 projetada) no período escolhido. <b>Isolado</b> mede cada efeito sozinho sobre a base (base × efeito); como os efeitos são multiplicativos, a soma dos isolados não fecha com o total e a diferença aparece como <b>interação</b>. <b>Sequencial</b> aplica os efeitos em ordem e atribui a cada um o incremento sobre o acumulado anterior, fechando exatamente no total.</p></div></div>
+      <div class="toolbar"><div class="field" style="min-width:160px"><label>Período</label><select id="pvmPeriod">${periods.map(p=>`<option value="${p[0]}" ${ui.pvmPeriod===p[0]?'selected':''}>${p[1]}</option>`).join('')}</select></div>
+        <div class="field"><label>Visão da cascata</label>${seg('pvmMode',[['isolado','Isolado'],['sequencial','Sequencial']])}</div>
+        ${ui.pvmMode==='sequencial'?`<div class="field"><label>Ordem de aplicação</label><div class="seg">${[['saz','clima','cota'],['cota','clima','saz'],['clima','saz','cota']].map(o=>`<button type="button" data-ui="pvmOrder|${o.join(',')}" class="${ui.pvmOrder.join(',')===o.join(',')?'on':''}">${o.map(k=>names[k].split(' ')[0]).join(' → ')}</button>`).join('')}</div></div>`:''}
+        <div class="sep"></div>${['saz','clima','cota'].map(k=>`<label class="toggle"><input type="checkbox" data-path="effects.${k}" ${state.params.effects[k]?'checked':''} id="eff2_${k}"> ${names[k]}</label>`).join('')}</div>
+      <div class="grid kpi">${kp('Base do ciclo',d.base,`${d.n} ${d.n>1?'meses projetados':'mês projetado'}`)}${kp('Projeção final',d.final,fmtPct(d.final/d.base-1)+' vs base')}${Y&&Y.proj<Y.n?kp('Total do ano '+ui.pvmPeriod,Y.total,`${Y.n-Y.proj} meses realizados + ${Y.proj} projetados`):''}</div>
+      <div class="grid two"><div class="card"><h3>Cascata: da base ao abate projetado</h3><p class="sub">Mil cabeças; abaixo de cada barra, o efeito em % da base. O eixo não parte de zero para dar escala aos efeitos.</p><div class="chart" id="chWf"></div></div>
+      <div class="card"><h3>Efeitos no período</h3><div class="tbl-wrap"><table><thead><tr><th class="l">Efeito</th><th>Isolado (mil)</th><th>% base</th><th>Sequencial (mil)</th><th>% base</th></tr></thead><tbody>${effRows}
+        <tr><td class="l">Interação (isolados)</td><td class="${d.interaction<0?'neg':'posv'}">${fmtMil(d.interaction,0)}</td><td>${fmtPct(d.interaction/d.base)}</td><td>–</td><td>–</td></tr>${manualRow}
+        <tr class="total"><td class="l">Total dos efeitos</td><td>${fmtMil(d.final-d.base,0)}</td><td>${fmtPct(d.final/d.base-1)}</td><td>${fmtMil(d.final-d.base,0)}</td><td>${fmtPct(d.final/d.base-1)}</td></tr></tbody></table></div>
+        <p class="note" style="margin-top:12px">Sequencial na ordem ${ui.pvmOrder.map(k=>names[k]).join(' → ')}. Troque a ordem para ver como a atribuição se desloca: o último efeito aplicado “carrega” a interação com os anteriores.</p></div></div>
+      <div class="card"><h3>Efeitos em conjunto ao longo do horizonte</h3><p class="sub">Cada linha acrescenta um efeito à anterior: base do ciclo → +sazonalidade → +clima → +cota China (= projeção final).</p><div class="chart" id="chLayers"></div>
+        <div class="legend"><span><i style="background:var(--s-cycle)"></i>Base (ciclo)</span><span><i style="background:var(--s-4)"></i>+ Sazonalidade</span><span><i style="background:var(--s-5)"></i>+ Clima</span><span><i style="background:var(--s-proj)"></i>+ Cota China (final)</span></div></div>
+      <div class="card"><h3>Fatores mês a mês</h3><div class="tbl-wrap"><table><thead><tr><th class="l">Mês</th><th>Base (mil)</th><th>Saz.</th><th>Clima</th><th>Cota</th><th>Fator total</th><th>Projeção (mil)</th><th>Δ vs base (mil)</th></tr></thead><tbody>
+        ${M.fc.map(f=>`<tr><td class="l">${ymLabel(f.ym)}</td><td>${fmtMil(f.base)}</td><td class="${f.sOn<0?'neg':''}">${fmtPct(f.sOn)}</td><td class="${f.cOn<0?'neg':''}">${fmtPct(f.cOn)}</td><td class="${f.qOn<0?'neg':''}">${fmtPct(f.qOn)}</td><td>${fmtNum(f.model/f.base,4)}</td><td class="proj ${f.manual!=null?'manual':''}">${ed(fmtMil(f.final),`manual:${f.ym}`,(f.final/1000).toFixed(1))}</td><td class="${f.final<f.base?'neg':'posv'}">${fmtMil(f.final-f.base)}</td></tr>`).join('')}</tbody></table></div></div>`;
+  },
+  after(root){
+    $('#pvmPeriod').addEventListener('change',e=>{ ui.pvmPeriod=e.target.value; render(); });
+    const ymList = M.fc.filter(f=> f.ym===ui.pvmPeriod || yearOf(f.ym)===+ui.pvmPeriod).map(f=>f.ym);
+    const d = decompose(M, ymList, ui.pvmOrder); const names={saz:'Sazonalidade',clima:'Clima',cota:'Cota China'};
+    const steps = [{label:'Base',value:d.base,kind:'total'}]; const short={saz:'Sazonal.',clima:'Clima',cota:'Cota'};
+    if (ui.pvmMode==='isolado'){ ['saz','clima','cota'].forEach(k=>steps.push({label:short[k],value:d.iso[k],kind:'delta'})); steps.push({label:'Interação',value:d.interaction,kind:'delta'}); }
+    else ui.pvmOrder.forEach(k=>steps.push({label:short[k],value:d.seq[k],kind:'delta'}));
+    if (d.manual) steps.push({label:'Manual',value:d.manual,kind:'delta'});
+    steps.push({label:'Projeção',value:d.final,kind:'total'});
+    waterfall($('#chWf'),{steps, yFmt:v=>fmtMil(v,0), pct:true, pctBase:d.base, width:760, height:320});
+    const labels=M.fc.map(f=>f.ym);
+    lineChart($('#chLayers'),{labels, xTicks:monthTicks(labels), yFmt:v=>fmtMil(v,0), tipFmt:v=>fmtMil(v,0)+' mil', tipTitle:i=>ymLabel(labels[i]), height:300, width:1000,
+      series:[{name:'Base',color:'var(--s-cycle)',values:M.fc.map(f=>f.base),width:1.5},{name:'+Saz',color:'var(--s-4)',values:M.fc.map(f=>f.stepSaz),width:1.5},{name:'+Clima',color:'var(--s-5)',values:M.fc.map(f=>f.stepClima),width:1.5},{name:'Final',color:'var(--s-proj)',values:M.fc.map(f=>f.final),width:2.5}]});
+  }
+};
+
+/* ---------- Cenários ---------- */
+const AUTHORS=['Lucas','Guilherme','Outro'];
+function scenVintage(sc){ return state.vintages.find(v=>v.scenarioId===sc.id); }
+function publishScenario(sc, on){
+  const have=scenVintage(sc);
+  if (on && !have){ const Ms=compute({...state, params:sc.params}); const values={}; Ms.fc.forEach(f=>values[f.ym]=Math.round(f.final)); state.vintages.push({id:'v'+Date.now(), name:sc.name, at:sc.at, lastKnown:Ms.months[Ms.lastKnown], values, author:sc.author, published:true, scenarioId:sc.id}); }
+  if (!on && have){ state.vintages=state.vintages.filter(v=>v.id!==have.id); }
+  sc.published=!!on;
+}
+const viewCenarios = {
+  html(){
+    const yrs=[...new Set(M.fc.map(f=>yearOf(f.ym)))]; if(!ui.scenYear||!yrs.includes(ui.scenYear)) ui.scenYear=yrs.find(y=>M.years[y].proj===12)||yrs[0];
+    const fmtAt=t=>new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const rows = state.scenarios.map((sc,i)=>{ const Ms = compute({...state, params:sc.params}); const on=ui.compareScen.includes(sc.id);
+      return `<div class="scen"><label class="toggle"><input type="checkbox" data-cmp="${sc.id}" ${on?'checked':''} aria-label="comparar ${esc(sc.name)}"></label><div style="flex:1;min-width:0"><div class="name">${esc(sc.name)} ${sc.published?'<span class="pill" style="background:var(--accent-soft);color:var(--accent)">Publicado DATAGRO</span>':''}</div><div class="meta">salvo em ${fmtAt(sc.at)} · por <b>${esc(sc.author||'–')}</b> · ${esc(sc.desc||'')}</div></div><div class="num" style="font-size:12.5px;color:var(--fg-2)">${yrs.map(y=>`${y}: <b>${fmtMil(Ms.years[y]?.total,0)}</b>`).join(' · ')}</div><label class="toggle" style="font-size:12px" title="Publicado pela DATAGRO: entra em Previsto × Realizado"><input type="checkbox" data-pub="${sc.id}" ${sc.published?'checked':''}> Publicado</label><button class="btn small" data-load="${sc.id}">Carregar</button><button class="btn small ghost" data-del="${sc.id}">Excluir</button></div>`; }).join('');
+    return `<div class="page-head"><div><h2>Cenários</h2><p>Guarde o conjunto atual de parâmetros e ajustes com um nome, quem fez e se foi a previsão publicada pela DATAGRO. Cenários publicados viram automaticamente uma safra em Previsto × Realizado, para serem confrontados com os dados que forem saindo. Os cenários ficam gravados junto do estado do modelo quando você clica em “Salvar”.</p></div></div>
+      <div class="card"><h3>Salvar o cenário atual</h3><div class="toolbar" style="align-items:flex-end"><div class="field" style="min-width:260px;flex:1"><label>Nome</label><input id="scenName" placeholder="ex.: El Niño forte + cota em agosto"></div>
+        <div class="field"><label>Quem fez</label><select id="scenAuthor">${AUTHORS.map(a=>`<option ${ui.scenAuthor===a?'selected':''}>${a}</option>`).join('')}</select></div>
+        <div class="field" id="scenOtherWrap" ${ui.scenAuthor==='Outro'?'':'hidden'}><label>Nome de quem fez</label><input id="scenOther" placeholder="nome"></div>
+        <label class="toggle" style="padding-bottom:8px"><input type="checkbox" id="scenPub"> Publicado pela DATAGRO</label>
+        <button class="btn primary" id="scenSave">Salvar cenário</button></div></div>
+      <div class="card"><h3>Cenários salvos</h3>${state.scenarios.length?`<div class="scen-list">${rows}</div>`:'<p class="sub">Nenhum cenário salvo ainda. Ajuste parâmetros nos blocos do modelo e salve aqui para comparar.</p>'}</div>
+      <div class="card"><h3>Comparação na linha do tempo</h3><p class="sub">Linha cheia = parâmetros atuais; tracejadas = cenários marcados.</p><div class="chart" id="chScen"></div><div class="tbl-wrap" id="scenTable"></div></div>
+      <div class="card"><div class="page-head" style="margin-bottom:6px"><h3 style="margin:0">Sombra mín–máx e linhas sazonais</h3><div class="toolbar"><span class="hint">Ano:</span><div class="seg">${yrs.map(y=>`<button type="button" data-ui="scenYear|${y}" class="${ui.scenYear===y?'on':''}">${y}</button>`).join('')}</div></div></div><p class="sub">Cada linha é o ano ${ui.scenYear} mês a mês nos parâmetros atuais e em cada cenário marcado, sobre a faixa mín–máx ${ui.mmBand[0]}–${ui.mmBand[1]}.</p><div class="chart" id="chScenMM"></div><div class="legend" id="scenMMLegend"></div></div>`;
+  },
+  after(root){
+    $('#scenAuthor').onchange=e=>{ ui.scenAuthor=e.target.value; $('#scenOtherWrap').hidden = e.target.value!=='Outro'; };
+    $('#scenSave').onclick=()=>{ const name=$('#scenName').value.trim()||`Cenário ${state.scenarios.length+1}`; let author=$('#scenAuthor').value; if(author==='Outro') author=$('#scenOther').value.trim()||'Outro'; const sc={id:'s'+Date.now(), name, at:new Date().toISOString(), author, published:false, params:clone(state.params), desc:scenDesc(state.params)}; state.scenarios.push(sc); if($('#scenPub').checked) publishScenario(sc,true); markDirty(); render(); toast(`Cenário “${name}” salvo${sc.published?' e registrado como safra publicada':''}.`); };
+    $$('[data-load]',root).forEach(b=>b.onclick=()=>{ const sc=state.scenarios.find(x=>x.id===b.dataset.load); state.params=clone(sc.params); markDirty(); toast(`Parâmetros de “${sc.name}” carregados.`); render(); });
+    $$('[data-del]',root).forEach(b=>b.onclick=()=>{ const sc=state.scenarios.find(x=>x.id===b.dataset.del); if(sc) publishScenario(sc,false); state.scenarios=state.scenarios.filter(x=>x.id!==b.dataset.del); ui.compareScen=ui.compareScen.filter(x=>x!==b.dataset.del); markDirty(); render(); });
+    $$('[data-pub]',root).forEach(c=>c.onchange=()=>{ const sc=state.scenarios.find(x=>x.id===c.dataset.pub); publishScenario(sc,c.checked); markDirty(); render(); });
+    $$('[data-cmp]',root).forEach(c=>c.onchange=()=>{ if(c.checked) ui.compareScen.push(c.dataset.cmp); else ui.compareScen=ui.compareScen.filter(x=>x!==c.dataset.cmp); render(); });
+    const i0=M.months.indexOf('2024-01'); const labels=M.months.slice(i0);
+    const cols=['var(--s-4)','var(--s-5)','var(--s-cycle)','var(--s-hist)'];
+    const scen = state.scenarios.filter(s=>ui.compareScen.includes(s.id)).slice(0,4).map((s,k)=>({s, Ms:compute({...state,params:s.params}), color:cols[k]}));
+    const series=[{name:'Atual',color:'var(--s-proj)',values:M.series.slice(i0),width:2.5}, ...scen.map(x=>({name:x.s.name,color:x.color,values:x.Ms.series.slice(i0),width:1.5,dash:'5 4'}))];
+    lineChart($('#chScen'),{labels,xTicks:monthTicks(labels),yFmt:v=>fmtMil(v,0),tipFmt:v=>fmtMil(v,0)+' mil',tipTitle:i=>ymLabel(labels[i]),height:300,width:1000,series,bands:[{from:M.fcStart-i0,to:labels.length-1,label:'projeção'}]});
+    const yrs=[...new Set(M.fc.map(f=>yearOf(f.ym)))];
+    $('#scenTable').innerHTML=`<table><thead><tr><th class="l">Cenário</th>${yrs.map(y=>`<th>${y} (mil)</th>`).join('')}${yrs.map(y=>`<th>${y} vs atual</th>`).join('')}</tr></thead><tbody><tr><td class="l">Atual</td>${yrs.map(y=>`<td>${fmtMil(M.years[y]?.total,0)}</td>`).join('')}${yrs.map(()=>'<td>–</td>').join('')}</tr>${scen.map(x=>`<tr><td class="l"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${x.color};margin-right:6px"></i>${esc(x.s.name)}</td>${yrs.map(y=>`<td>${fmtMil(x.Ms.years[y]?.total,0)}</td>`).join('')}${yrs.map(y=>{ const r=x.Ms.years[y]?.total/M.years[y]?.total-1; return `<td class="${r<0?'neg':'posv'}">${fmtPct(r)}</td>`; }).join('')}</tr>`).join('')}</tbody></table>`;
+    // sombra mín–máx com linhas sazonais por cenário
+    const Y=ui.scenYear; const ym=(Mx,y)=>MESES.map((_,k)=>{ const i=Mx.months.indexOf(`${y}-${String(k+1).padStart(2,'0')}`); return i>=0? Mx.series[i] : null; });
+    const sl=[{name:`Atual ${Y}`,color:'var(--s-proj)',values:ym(M,Y),width:2.5,endLabel:true}, ...scen.map(x=>({name:`${x.s.name} ${Y}`,color:x.color,values:ym(x.Ms,Y),width:1.8,dash:'5 4'}))];
+    drawMinMax($('#chScenMM'), $('#scenMMLegend'), sl);
+  }
+};
+function scenDesc(p){ return `A ${fmtMil(p.cycle.A,0)} · B ${fmtMil(p.cycle.B,0)} · C ${p.cycle.C} · D ${p.cycle.D} · saz ${p.saz.yearFrom}–${p.saz.yearTo} · cota ${p.cota.cota} kt · efeitos ${['saz','clima','cota'].filter(k=>p.effects[k]).join('/')||'nenhum'}`; }
+
+
+/* ---------- Previsto × Realizado ---------- */
+function vintageStats(v){
+  const rows=Object.keys(v.values).sort().map(ym=>{ const i=M.months.indexOf(ym); const real = (i>=0 && i<=M.lastKnown)? M.total[i] : null; const prev=v.values[ym];
+    return { ym, prev, real, src: real!=null? M.source[i] : null, err: real!=null? real-prev : null, pct: real!=null? real/prev-1 : null }; });
+  const cmp=rows.filter(r=>r.real!=null); const n=cmp.length;
+  const mape = n? sum(cmp.map(r=>Math.abs(r.pct)))/n : null; const bias = n? sum(cmp.map(r=>r.pct))/n : null;
+  const sp=sum(cmp.map(r=>r.prev)), sr=sum(cmp.map(r=>r.real));
+  return { rows, cmp, n, mape, bias, cumErr: n? sr/sp-1 : null, sp, sr };
+}
+const viewAcuracia = {
+  html(){
+    const V=state.vintages; if (!ui.vintSel || !V.some(v=>v.id===ui.vintSel)) ui.vintSel = V.length? V[V.length-1].id : null;
+    const sel=V.find(v=>v.id===ui.vintSel); const st=sel? vintageStats(sel) : null;
+    const kp=(l,v,sub)=>`<div class="card kpi"><div class="label">${l}</div><div class="value" style="font-size:24px">${v}</div>${sub?`<div class="foot">${sub}</div>`:''}</div>`;
+    const list=V.map(v=>{ const s=vintageStats(v); return `<div class="scen"><label class="toggle"><input type="checkbox" data-vcmp="${v.id}" ${ui.vintCmp.includes(v.id)?'checked':''} aria-label="comparar ${esc(v.name)}"></label><div style="flex:1;min-width:0"><div class="name">${esc(v.name)}</div><div class="meta">registrada em ${new Date(v.at).toLocaleDateString('pt-BR')}${v.author?` · por <b>${esc(v.author)}</b>`:''}${v.published?' · <span class="pill" style="background:var(--accent-soft);color:var(--accent)">Publicado DATAGRO</span>':''}${v.external?' · externa':''} · base até ${ymLabel(v.lastKnown)} · ${Object.keys(v.values).length} meses previstos${s.n?` · ${s.n} já realizados · MAPE ${fmtPct(s.mape,1,false)}`:''}</div></div><button class="btn small ${ui.vintSel===v.id?'primary':''}" data-vsel="${v.id}">Detalhar</button><button class="btn small ghost" data-vdel="${v.id}">Excluir</button></div>`; }).join('');
+    return `<div class="page-head"><div><h2>Previsto × Realizado</h2><p>Registre a previsão de hoje como uma “safra” e, quando saírem os dados do IBGE e do SIF, volte aqui para ver quanto cada safra errou, mês a mês e no acumulado. Também dá para colar uma previsão publicada (por exemplo, a tabela DATAGRO) para acompanhá-la contra o realizado.</p></div>
+      <div class="toolbar"><input id="vintName" placeholder="Nome (ex.: Previsão out/26 pós-cota)" style="border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px;min-width:240px"><button class="btn primary" id="vintSave">Registrar previsão atual</button><button class="btn" id="vintImport">Colar previsão externa…</button></div></div>
+      ${st?`<div class="grid kpi">${kp('Safra em detalhe', esc(sel.name).slice(0,28), `base até ${ymLabel(sel.lastKnown)}`)}${kp('Meses já realizados', st.n, `de ${st.rows.length} previstos`)}${kp('MAPE', st.n?fmtPct(st.mape,1,false):'–', 'erro absoluto médio')}${kp('Viés médio', st.n?fmtPct(st.bias,1):'–', st.n?(st.bias>0?'realizado acima do previsto':'realizado abaixo do previsto'):'')}${kp('Erro do acumulado', st.n?fmtPct(st.cumErr,1):'–', st.n?`${fmtMil(st.sr,0)} real vs ${fmtMil(st.sp,0)} prev (mil)`:'')}</div>`:''}
+      <div class="card"><h3>Safras de previsão</h3>${V.length?`<div class="scen-list">${list}</div>`:'<p class="sub">Nenhuma safra registrada. Clique em “Registrar previsão atual” para guardar a projeção de hoje e compará-la depois com os dados que forem saindo.</p>'}</div>
+      <div class="card"><h3>Previsões marcadas × realizado</h3><p class="sub">Linha cheia = realizado (IBGE e estimativa via SIF); tracejadas = safras marcadas; laranja = projeção atual.</p><div class="chart" id="chVint"></div><div class="legend" id="vintLegend"></div></div>
+      ${st?`<div class="card"><h3>Detalhe: ${esc(sel.name)}</h3><div class="tbl-wrap"><table><thead><tr><th class="l">Mês</th><th>Previsto (mil)</th><th>Realizado (mil)</th><th>Origem</th><th>Erro (mil)</th><th>Erro %</th><th>Projeção atual (mil)</th></tr></thead><tbody>
+        ${st.rows.map(r=>{ const i=M.months.indexOf(r.ym); const cur=i>=0?M.series[i]:null; return `<tr><td class="l">${ymLabel(r.ym)}</td><td>${fmtMil(r.prev)}</td><td class="${srcClass(r.src)}">${fmtMil(r.real)}</td><td>${r.src?`<span class="pill ${r.src}">${r.src==='ibge'?'IBGE':'via SIF'}</span>`:'<span class="pill proj">aguardando</span>'}</td><td class="${r.err<0?'neg':r.err>0?'posv':''}">${r.err!=null?fmtMil(r.err):'–'}</td><td class="${r.pct<0?'neg':r.pct>0?'posv':''}">${fmtPct(r.pct)}</td><td class="${i>M.lastKnown?'proj':''}">${fmtMil(cur)}</td></tr>`; }).join('')}
+        <tr class="total"><td class="l">Soma (meses realizados)</td><td>${fmtMil(st.sp,0)}</td><td>${fmtMil(st.sr,0)}</td><td></td><td class="${st.sr-st.sp<0?'neg':'posv'}">${st.n?fmtMil(st.sr-st.sp,0):'–'}</td><td>${fmtPct(st.cumErr)}</td><td></td></tr></tbody></table></div></div>`:''}`;
+  },
+  after(root){
+    $('#vintSave').onclick=()=>{ const name=$('#vintName').value.trim()||`Previsão de ${new Date().toLocaleDateString('pt-BR')} (base ${ymLabel(M.months[M.lastKnown])})`; const values={}; M.fc.forEach(f=>values[f.ym]=Math.round(f.final)); state.vintages.push({id:'v'+Date.now(), name, at:new Date().toISOString(), lastKnown:M.months[M.lastKnown], values, params:clone(state.params)}); ui.vintSel=state.vintages[state.vintages.length-1].id; markDirty(); toast('Safra registrada. Clique em Salvar para gravar.'); render(); };
+    $('#vintImport').onclick=()=>{ openModal(`<h2>Colar previsão externa</h2><p class="sub">Uma linha por mês: <span class="num">AAAA-MM;valor</span> (ou mm/AAAA). Valores abaixo de 20.000 são lidos como mil cabeças.</p><input id="vImpName" placeholder="Nome da previsão (ex.: DATAGRO out/26)" style="border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px"><textarea id="vImp" style="min-height:220px;font-family:var(--font-num);font-size:12px;border:1px solid var(--line-strong);border-radius:8px;padding:8px" placeholder="2026-10;3252\n2026-11;3425"></textarea><div class="toolbar"><button class="btn primary" id="vImpGo">Incorporar</button><button class="btn" id="mClose">Cancelar</button></div>`); $('#mClose').onclick=closeModal;
+      $('#vImpGo').onclick=()=>{ const values={}; const n=importSeries($('#vImp').value,(ym,v)=>{ if(v[0]!=null) values[ym]= v[0]<20000? v[0]*1000 : v[0]; }); if(!n){ toast('Nenhuma linha reconhecida.'); return; } const name=$('#vImpName').value.trim()||`Previsão externa ${new Date().toLocaleDateString('pt-BR')}`; const first=Object.keys(values).sort()[0]; state.vintages.push({id:'v'+Date.now(), name, at:new Date().toISOString(), lastKnown:ymAdd(first,-1), values, external:true}); ui.vintSel=state.vintages[state.vintages.length-1].id; closeModal(); markDirty(); render(); }; };
+    $$('[data-vsel]',root).forEach(b=>b.onclick=()=>{ ui.vintSel=b.dataset.vsel; render(); });
+    $$('[data-vdel]',root).forEach(b=>b.onclick=()=>{ state.vintages=state.vintages.filter(v=>v.id!==b.dataset.vdel); ui.vintCmp=ui.vintCmp.filter(x=>x!==b.dataset.vdel); markDirty(); render(); });
+    $$('[data-vcmp]',root).forEach(c=>c.onchange=()=>{ if(c.checked) ui.vintCmp.push(c.dataset.vcmp); else ui.vintCmp=ui.vintCmp.filter(x=>x!==c.dataset.vcmp); render(); });
+    const cmp=state.vintages.filter(v=>ui.vintCmp.includes(v.id)).slice(0,4); const cols=['var(--s-4)','var(--s-5)','var(--s-cycle)','var(--neg)'];
+    const i0=M.months.indexOf('2024-01'); const labels=M.months.slice(i0);
+    const series=[{name:'Realizado',color:'var(--s-hist)',values:labels.map((_,k)=>(i0+k)<=M.lastKnown?M.total[i0+k]:null),width:2.5},{name:'Projeção atual',color:'var(--s-proj)',dash:'5 4',width:2,values:labels.map((_,k)=>(i0+k)>=M.lastKnown?M.series[i0+k]:null)}, ...cmp.map((v,k)=>({name:v.name,color:cols[k],dash:'3 3',width:1.5,values:labels.map(ym=>v.values[ym]??null)}))];
+    lineChart($('#chVint'),{labels,xTicks:monthTicks(labels),yFmt:v=>fmtMil(v,0),tipFmt:v=>fmtMil(v,0)+' mil',tipTitle:i=>ymLabel(labels[i]),height:300,width:1000,series,bands:[{from:M.fcStart-i0,to:labels.length-1,label:'projeção'}]});
+    $('#vintLegend').innerHTML=series.map(s=>`<span><i class="${s.dash?'dash':''}" style="${s.dash?'color:'+s.color:'background:'+s.color}"></i>${esc(s.name)}</span>`).join('');
+  }
+};
+
+/* ---------- Ciclo ---------- */
+// geometria do ciclo corrente: vale (fim do ciclo) e pico seguintes ao último mês observado
+function cycleGeom(){
+  const c=state.params.cycle, per=2*Math.PI/c.C, tNow=M.tOf(M.lastKnown);
+  let tMin=(Math.PI - c.D)/c.C; while (tMin<=tNow) tMin+=per; while (tMin-per>tNow) tMin-=per;
+  let tMax=(2*Math.PI - c.D)/c.C; while (tMax<=tNow) tMax+=per; while (tMax-per>tNow) tMax-=per;
+  const start=M.months[M.c4]; const tH=M.tOf(M.N-1);
+  return { per, tNow, tMin, tMax, tTrough:Math.round(tMin), tPeak:Math.round(tMax), ymMin:ymAdd(start,Math.round(tMin)-1), ymMax:ymAdd(start,Math.round(tMax)-1), tH, start };
+}
+const viewCiclo = {
+  html(){
+    const c=state.params.cycle; const g=cycleGeom(); const cur=M.cycles[M.cycles.length-1]; const fit=ui.fitResult;
+    const kp=(l,v,sub)=>`<div class="card kpi"><div class="label">${l}</div><div class="value" style="font-size:24px">${v}</div>${sub?`<div class="foot">${sub}</div>`:''}</div>`;
+    return `<div class="page-head"><div><h2>Ciclo pecuário</h2><p>A média móvel de 12 meses do abate é tratada como o ciclo do gado. O ciclo corrente é prolongado com um cosseno <span class="num">MM12(t) = A + B·cos(C·t + D)</span>, t = 1 em ${ymLabel(cur.start)}. Arraste a curva projetada para mover nível e fase, puxe o vale para mudar a amplitude e arraste o marcador do eixo para esticar o período; os botões ± dentro do gráfico fazem ajustes finos. Quando a curva volta a subir depois do vale, começa um novo ciclo.</p></div>
+      <div class="toolbar">${seg('cycleView',[['alinhado','Ciclos alinhados'],['tempo','Linha do tempo']])}</div></div>
+      <div class="grid kpi" id="cycleKpis">${this.kpis(g)}</div>
+      <div class="card"><h3 id="cycleTitle">${ui.cycleView==='alinhado'?'Ciclos alinhados pelo mês inicial':'Média móvel de 12 meses e cosseno'}</h3><p class="sub">${ui.cycleView==='alinhado'?'Laranja tracejado = trecho do cosseno que entra no modelo (até o vale); cinza = continuação fora do ciclo corrente; roxo = o mesmo trecho pós-vale reposicionado como novo ciclo.':'Laranja = trecho do cosseno usado pelo modelo (do primeiro mês projetado até o fim do horizonte); cinza = ajuste sobre o passado e continuação além do horizonte, apenas para enxergar a curva.'}</p><div class="chart" id="chCycle" style="min-height:360px"></div><div class="legend" id="cycleLegend"></div></div>
+      <div class="grid two">
+      <div class="card"><h3>Ajuste e emenda</h3>
+        ${M.splice?`<p class="note ${Math.abs(M.splice.fit/M.splice.obs-1)>0.01?'warn':''}"><b>Emenda em ${ymLabel(M.months[M.lastKnown])} (t=${M.splice.t}):</b> MM12 observada ${fmtMil(M.splice.obs,0)} mil vs cosseno ${fmtMil(M.splice.fit,0)} mil (${fmtPct(M.splice.fit/M.splice.obs-1)}). O primeiro mês projetado herda esse salto.</p>`:''}
+        <div class="toolbar" style="margin-top:12px"><button class="btn" id="btnFit">Ajustar cosseno ao ciclo corrente (mín. quadrados)</button>${fit?`<button class="btn primary" id="btnApplyFit">Aplicar ajuste</button>`:''}<button class="btn" id="btnCycReset">Voltar aos parâmetros da planilha</button></div>
+        ${fit?`<p class="sub" style="margin-top:8px">Ajuste com ${fit.n} meses observados: A ${fmtInt(fit.A)} · B ${fmtInt(fit.B)} · C ${fmtNum(fit.C,4)} (período ${fmtNum(2*Math.PI/fit.C/12,1)} anos) · D ${fmtNum(fit.D,3)} · RMSE ${fmtInt(fit.rmse)} cab.</p>`:''}
+        <h3 style="margin-top:16px">Limites dos ciclos (vales da MM12)</h3><div class="fields">${c.starts.map((s,i)=>`<div class="field"><label>${esc(c.labels[i]||'Ciclo '+(i+1))} começa em</label><input type="month" value="${s}" data-cstart="${i}" id="cs_${i}"></div>`).join('')}</div>
+        <p class="hint" style="margin-top:6px">O último início define t = 1 do cosseno.</p></div>
+      <div class="card"><h3>Estatísticas dos ciclos</h3><p class="sub">Equivalente ao bloco “PARÂMETROS” da aba Modelo, calculado a partir dos dados; o ciclo corrente traz o vale projetado.</p><div class="tbl-wrap"><table><thead><tr><th class="l">Ciclo</th><th>Início</th><th>Fim</th><th>Meses</th><th>Mín (mil)</th><th>Máx (mil)</th><th>Amplitude</th></tr></thead><tbody>
+        ${M.cycles.map(cy=>cy.open?`<tr><td class="l">${esc(cy.label)} <span class="pill proj">em curso</span></td><td>${ymLabel(cy.start)}</td><td class="proj">${ymLabel(g.ymMin)}</td><td class="proj">${g.tTrough}</td><td>${fmtMil(Math.min(cy.min,c.A-c.B),0)}</td><td>${fmtMil(cy.max,0)}</td><td>${fmtMil(cy.max-Math.min(cy.min,c.A-c.B),0)}</td></tr>`:`<tr><td class="l">${esc(cy.label)}</td><td>${ymLabel(cy.start)}</td><td>${ymLabel(cy.end)}</td><td>${cy.n}</td><td>${fmtMil(cy.min,0)}</td><td>${fmtMil(cy.max,0)}</td><td>${fmtMil(cy.max-cy.min,0)}</td></tr>`).join('')}
+        <tr><td class="l">Ciclo ${M.cycles.length+1} <span class="pill" style="background:color-mix(in srgb,var(--s-5) 18%,transparent);color:var(--s-5)">projetado</span></td><td class="proj">${ymLabel(g.ymMin)}</td><td>–</td><td>–</td><td>${fmtMil(c.A-c.B,0)}</td><td class="proj">${fmtMil(c.A+c.B,0)}</td><td>${fmtMil(2*c.B,0)}</td></tr></tbody></table></div>
+        <p class="hint" style="margin-top:6px">Os ciclos 1 e 2 na planilha vinham de uma safra anterior dos dados do IBGE, por isso diferem em poucos milhares de cabeças.</p></div></div>`;
+  },
+  kpis(g){
+    const c=state.params.cycle; const kp=(l,v,sub)=>`<div class="card kpi"><div class="label">${l}</div><div class="value" style="font-size:24px">${v}</div>${sub?`<div class="foot">${sub}</div>`:''}</div>`;
+    return kp('Duração do ciclo atual', `${ed(g.tTrough,'cyc:dur',g.tTrough)}<small>meses · ${fmtNum(g.tTrough/12,1)} anos</small>`, `${ymLabel(g.start)} → ${ymLabel(g.ymMin)}`)
+      + kp('Período do cosseno (2π/C)', `${ed(fmtNum(g.per,1),'cyc:per',g.per.toFixed(1))}<small>meses · ${fmtNum(g.per/12,1)} anos</small>`, `C = ${fmtNum(c.C,4)} rad/mês`)
+      + kp('Vale projetado', `${ed(fmtMil(c.A-c.B,0),'cyc:vale',((c.A-c.B)/1000).toFixed(0))}<small>mil</small>`, `${ymLabel(g.ymMin)} · fim do ciclo atual`)
+      + kp('Pico projetado', `${ed(fmtMil(c.A+c.B,0),'cyc:pico',((c.A+c.B)/1000).toFixed(0))}<small>mil</small>`, `${ymLabel(g.ymMax)} · ${g.tMax>g.tMin?'ciclo seguinte':'ciclo atual'}`);
+  },
+  after(root){
+    $$('[data-cstart]',root).forEach(inp=>inp.onchange=()=>{ const i=+inp.dataset.cstart; if(/^\d{4}-\d{2}$/.test(inp.value)){ state.params.cycle.starts[i]=inp.value; state.params.cycle.starts.sort(); markDirty(); render(); } });
+    $('#btnFit').onclick=()=>{ ui.fitResult=fitCosine(M); if(!ui.fitResult) toast('Poucos meses no ciclo corrente para ajustar.'); render(); };
+    $('#btnCycReset').onclick=()=>{ Object.assign(state.params.cycle,{A:DEFAULT_PARAMS.cycle.A,B:DEFAULT_PARAMS.cycle.B,C:DEFAULT_PARAMS.cycle.C,D:DEFAULT_PARAMS.cycle.D}); markDirty(); render(); };
+    const ba=$('#btnApplyFit'); if (ba) ba.onclick=()=>{ const f=ui.fitResult; Object.assign(state.params.cycle,{A:Math.round(f.A),B:Math.round(f.B),C:+f.C.toFixed(4),D:+f.D.toFixed(3)}); ui.fitResult=null; markDirty(); render(); };
+    drawCycleChart($('#chCycle'), $('#cycleLegend'));
+    bindCycleDrag($('#chCycle'));
+  }
+};
+function drawCycleChart(el, legendEl){
+  const c=state.params.cycle; const g=cycleGeom(); const cols=['var(--s-hist)','var(--s-4)','var(--s-5)','var(--s-cycle)'];
+  let sc, geo;
+  if (ui.cycleView==='alinhado'){
+    const L=Math.max(...M.cycles.map(cy=>cy.values.length), g.tH, g.tTrough+24); const labels=Array.from({length:L},(_,i)=>String(i+1));
+    const series=M.cycles.map((cy,i)=>({name:cy.label,color:cols[i%4],values:labels.map((_,k)=>cy.values[k]??null),width:i===M.cycles.length-1?2.5:1.5}));
+    const projVals=labels.map((_,k)=>{ const t=k+1; return (t>g.tNow && t<=g.tTrough)? M.cosine(t):null; });
+    const shadowVals=labels.map((_,k)=>{ const t=k+1; return t>=g.tTrough? M.cosine(t):null; });
+    const newVals=labels.map((_,k)=>{ const t=g.tTrough+k; return (k<36)? M.cosine(t):null; });
+    const newIn=labels.map((_,k)=>{ const t=g.tTrough+k; return (t<=g.tH)? M.cosine(t):null; });
+    series.push({name:'Continuação (fora do ciclo)',color:'var(--neutral)',dash:'4 4',width:1.5,opacity:.6,values:shadowVals});
+    series.push({name:`Ciclo ${M.cycles.length+1} (projetado, realinhado)`,color:'var(--s-5)',dash:'5 4',width:1.5,opacity:.45,values:newVals});
+    series.push({name:'dentro do horizonte',color:'var(--s-5)',dash:'5 4',width:2,values:newIn,skipLegend:true});
+    series.push({name:'Cosseno no modelo (até o vale)',color:'var(--s-proj)',dash:'5 4',width:2.5,values:projVals});
+    sc=lineChart(el,{labels,xTicks:labels.map((_,i)=>i).filter(i=>i%12===0),yFmt:v=>fmtMil(v,0),tipFmt:v=>fmtMil(v,0)+' mil',tipTitle:i=>`mês ${i+1} do ciclo`,height:360,width:1000,series,
+      vlines:[{i:g.tTrough-1,label:'vale · '+ymLabel(g.ymMin),top:true}]});
+    geo={ tToX: t=>sc.xs(t-1), xToT: x=>x+1, iTrough:g.tTrough-1, iPeak:g.tPeak-1, n:L, projIdx:labels.map((_,k)=>k).filter(k=>projVals[k]!=null), vals:projVals };
+    if (legendEl) legendEl.innerHTML=series.filter(s=>!s.skipLegend).map(s=>`<span><i class="${s.dash?'dash':''}" style="${s.dash?'color:'+s.color:'background:'+s.color}"></i>${esc(s.name)}</span>`).join('');
+  } else {
+    const i0=M.months.indexOf('2002-01'); const ext=24; const labels=[]; for(let i=i0;i<M.N+ext;i++) labels.push(idxYm(M.start+i));
+    const mm=labels.map((_,k)=>M.mm12[i0+k]??null);
+    const past=labels.map((_,k)=>{ const i=i0+k; return (i>=M.c4 && i<=M.lastKnown)? M.cosine(M.tOf(i)) : null; });
+    const proj=labels.map((_,k)=>{ const i=i0+k; return (i>=M.lastKnown && i<M.N)? M.cosine(M.tOf(i)) : null; });
+    const beyond=labels.map((_,k)=>{ const i=i0+k; return (i>=M.N-1)? M.cosine(M.tOf(i)) : null; });
+    const vl=state.params.cycle.starts.map((s,i)=>({i:M.months.indexOf(s)-i0,label:state.params.cycle.labels[i]}));
+    const iTr=M.c4+g.tTrough-1-i0; if (iTr<labels.length) vl.push({i:iTr,label:'vale · '+ymLabel(g.ymMin),top:true});
+    const series=[{name:'MM12 observada',color:'var(--s-cycle)',values:mm,width:2},{name:'Cosseno sobre o passado',color:'var(--neutral)',dash:'4 4',width:1.5,opacity:.7,values:past},{name:'Cosseno no modelo',color:'var(--s-proj)',dash:'5 4',width:2.5,values:proj},{name:'Além do horizonte',color:'var(--neutral)',dash:'4 4',width:1.5,opacity:.6,values:beyond}];
+    sc=lineChart(el,{labels,xTicks:labels.map((l,i)=>l.endsWith('-01')&&(+l.slice(0,4))%2===0?i:-1).filter(i=>i>=0),yFmt:v=>fmtMil(v,0),tipFmt:v=>fmtMil(v,0)+' mil',tipTitle:i=>ymLabel(labels[i]),height:360,width:1000,vlines:vl,bands:[{from:M.fcStart-i0,to:M.N-1-i0,label:'projeção'}],series});
+    geo={ tToX: t=>sc.xs(M.c4+t-1-i0), xToT: x=>x-(M.c4-i0)+1, iTrough:iTr, iPeak:M.c4+g.tPeak-1-i0, n:labels.length, projIdx:labels.map((_,k)=>k).filter(k=>proj[k]!=null), vals:proj };
+    if (legendEl) legendEl.innerHTML=series.map(s=>`<span><i class="${s.dash?'dash':''}" style="${s.dash?'color:'+s.color:'background:'+s.color}"></i>${esc(s.name)}</span>`).join('');
+  }
+  // alças de arrasto
+  const svg=sc.svg; const ns='http://www.w3.org/2000/svg'; const add=(tag,attrs)=>{ const e=document.createElementNS(ns,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); svg.appendChild(e); return e; };
+  if (geo.projIdx.length){ let d=''; geo.projIdx.forEach((k,j)=>{ d+=(j?'L':'M')+sc.xs(k).toFixed(1)+' '+sc.ys(geo.vals[k]).toFixed(1)+' '; }); add('path',{d,fill:'none',stroke:'transparent','stroke-width':'18',class:'h-move','data-h':'move'}); }
+  const yT=sc.ys(c.A-c.B), yP=sc.ys(c.A+c.B);
+  if (geo.iTrough>=0 && geo.iTrough<geo.n){ const x=sc.xs(geo.iTrough); add('circle',{cx:x,cy:yT,r:9,fill:'var(--s-proj)',stroke:'var(--surface)','stroke-width':'2.5',class:'h-amp','data-h':'amp','data-sign':'-1'}); add('text',{x:x+13,y:yT+4,class:'lbl'}).textContent='amplitude ↕';
+    add('rect',{x:x-7,y:sc.Hh-sc.m.b-16,width:14,height:14,rx:3,fill:'var(--s-proj)',stroke:'var(--surface)','stroke-width':'2',class:'h-per','data-h':'per'}); add('text',{x:x+11,y:sc.Hh-sc.m.b-5,class:'lbl'}).textContent='período ↔'; }
+  if (geo.iPeak>=0 && geo.iPeak<geo.n && geo.iPeak>M.tOf(M.lastKnown)-1){ const x=sc.xs(geo.iPeak); add('circle',{cx:x,cy:yP,r:8,fill:'var(--s-proj)',stroke:'var(--surface)','stroke-width':'2.5',opacity:'.8',class:'h-amp','data-h':'amp','data-sign':'1'}); }
+  // sobreposição com parâmetros (somente ±)
+  let ov=el.querySelector('.ovl'); if(!ov){ ov=document.createElement('div'); ov.className='ovl'; el.appendChild(ov); }
+  const rows=[['A',fmtMil(c.A,0)+' mil','cycle.A',50000],['B',fmtMil(c.B,0)+' mil','cycle.B',25000],['C',fmtNum(c.C,4),'cycle.C',0.005],['D',fmtNum(c.D,3),'cycle.D',0.1]];
+  ov.innerHTML=rows.map(r=>`<div class="prow"><span>${r[0]}</span><b>${r[1]}</b><button type="button" data-cstep="${r[2]}|${-r[3]}" aria-label="diminuir ${r[0]}">−</button><button type="button" data-cstep="${r[2]}|${r[3]}" aria-label="aumentar ${r[0]}">+</button></div>`).join('')+`<div class="hint">A nível · B amplitude · C velocidade · D fase</div>`;
+  $$('[data-cstep]',ov).forEach(b=>b.onclick=()=>{ const [p,dlt]=b.dataset.cstep.split('|'); setPath(state.params,p,+(getPath(state.params,p)+parseFloat(dlt)).toPrecision(12)); markDirty(); render(); });
+  el._geo={sc,geo};
+}
+function bindCycleDrag(el){
+  let drag=null;
+  el.onpointerdown=e=>{ const h=e.target.dataset&&e.target.dataset.h; if(!h) return; e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('dragging');
+    const {sc,geo}=el._geo; const r=el.querySelector('svg').getBoundingClientRect(); const g=cycleGeom(); const c=state.params.cycle;
+    drag={h, sign:+(e.target.dataset.sign||1), x0:e.clientX, y0:e.clientY, p0:{...c}, pxPerT:(sc.xs(1)-sc.xs(0))*r.width/sc.W, pxPerV:(sc.ys(0)-sc.ys(1))*r.height/sc.Hh, t0:g.tNow, tTr0:g.tMin}; };
+  el.onpointermove=e=>{ if(!drag) return; const c=state.params.cycle, p=drag.p0; const dT=(e.clientX-drag.x0)/drag.pxPerT, dV=-(e.clientY-drag.y0)/drag.pxPerV;
+    if (drag.h==='move'){ c.A=Math.round(p.A+dV); c.D=+normAngle(p.D - p.C*dT).toFixed(3); }
+    else if (drag.h==='amp'){ c.B=Math.max(20000, Math.round(p.B + drag.sign*dV)); }
+    else if (drag.h==='per'){ const span0=drag.tTr0-drag.t0; const s=Math.min(4,Math.max(0.25,(span0+dT)/span0)); const C=+(p.C/s).toFixed(4); c.C=C; c.D=+normAngle((p.C*drag.t0+p.D) - C*drag.t0).toFixed(3); }
+    M=compute(state); drawCycleChart(el, $('#cycleLegend')); const k=$('#cycleKpis'); if(k) k.innerHTML=viewCiclo.kpis(cycleGeom()); renderStrip(); };
+  el.onpointerup=el.onpointercancel=e=>{ if(!drag) return; drag=null; el.classList.remove('dragging'); markDirty(); render(); };
+}
+function normAngle(a){ a=a%(2*Math.PI); if(a<0) a+=2*Math.PI; return a; }
+
+/* ---------- Sazonalidade ---------- */
+const PERIODS=[[2002,2010],[2010,2016],[2016,2021],[2021,2025]];
+const CATS=[['total','Total'],['machos','Machos'],['femeas','Fêmeas'],['bois','Bois'],['novilhos','Novilhos'],['vacas','Vacas'],['novilhas','Novilhas']];
+const viewSaz = {
+  html(){
+    const p=state.params.saz; const yrs=[...new Set(state.data.cat.months.map(m=>+m.slice(0,4)))];
+    const shareRows = PERIODS.map(([a,b])=>({label:`${a}–${b}`,sh:M.sharesFor(a,b,p.category)}));
+    return `<div class="page-head"><div><h2>Sazonalidade</h2><p>Participação de cada mês no abate anual, calculada a partir do abate por categoria do IBGE. O ajuste sazonal aplicado à MM12 é <span class="num">12 × participação − 1</span>: meses com participação acima de 1/12 recebem acréscimo, abaixo recebem desconto. Escolha a janela de anos e a categoria de referência; a planilha usa o total de 2021–2025.</p></div></div>
+      <div class="grid two"><div class="card"><h3>Janela e categoria</h3><div class="fields">
+        <div class="field"><label>Categoria</label><select data-path="saz.category" id="f_saz_cat">${CATS.map(([v,l])=>`<option value="${v}" ${p.category===v?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><label>De</label><select data-path="saz.yearFrom" data-type="int" id="f_saz_from">${yrs.map(y=>`<option ${p.yearFrom===y?'selected':''}>${y}</option>`).join('')}</select></div>
+        <div class="field"><label>Até</label><select data-path="saz.yearTo" data-type="int" id="f_saz_to">${yrs.map(y=>`<option ${p.yearTo===y?'selected':''}>${y}</option>`).join('')}</select></div></div>
+        <div class="toolbar" style="margin-top:12px"><label class="toggle"><input type="checkbox" id="sazManual" ${p.manual?'checked':''}> Permitir ajustes manuais por mês</label>${p.manual?'<button class="btn small" id="sazClear">Limpar manuais</button>':''}</div>
+        <p class="hint" style="margin-top:6px">Duplo clique num valor da coluna “Aplicado” fixa o mês à mão (em %); apagar o valor devolve o calculado.</p></div>
+      <div class="card"><h3>Ajuste sazonal aplicado</h3><div class="tbl-wrap"><table><thead><tr><th class="l">Mês</th><th>Participação</th><th>Calculado</th><th>Aplicado</th></tr></thead><tbody>
+        ${MESES.map((m,i)=>`<tr><td class="l">${m}</td><td>${M.shares?fmtPct(M.shares[i],2,false):'–'}</td><td class="${M.sazCalc[i]<0?'neg':''}">${fmtPct(M.sazCalc[i],2)}</td><td class="${M.saz[i]<0?'neg':''} ${p.manual&&p.manual[i]!=null?'manual':''}">${ed(fmtPct(M.saz[i],2),`saz:${i}`,(M.saz[i]*100).toFixed(2))}</td></tr>`).join('')}</tbody></table></div></div></div>
+      <div class="card"><h3>Ajuste sazonal por mês (${CATS.find(c=>c[0]===p.category)[1]}, ${p.yearFrom}–${p.yearTo})</h3><div class="chart" id="chSaz"></div></div>
+      <div class="card"><h3>Participação mensal por período · ${CATS.find(c=>c[0]===p.category)[1]}</h3><p class="sub">Equivalente às tabelas dinâmicas da aba Sazonalidade. Mostra como o padrão sazonal se deslocou entre os períodos.</p><div class="chart" id="chShares"></div>
+        <div class="legend">${shareRows.map((r,i)=>`<span><i style="background:${['var(--s-hist)','var(--s-4)','var(--s-5)','var(--s-cycle)'][i]}"></i>${r.label}</span>`).join('')}</div>
+        <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th class="l">Mês</th>${shareRows.map(r=>`<th>${r.label}</th>`).join('')}</tr></thead><tbody>${MESES.map((m,i)=>`<tr><td class="l">${m}</td>${shareRows.map(r=>`<td>${r.sh?fmtPct(r.sh[i],2,false):'–'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+  },
+  after(root){
+    $('#sazManual').onchange=e=>{ state.params.saz.manual = e.target.checked? new Array(12).fill(null) : null; markDirty(); render(); };
+    const cl=$('#sazClear'); if(cl) cl.onclick=()=>{ state.params.saz.manual=new Array(12).fill(null); markDirty(); render(); };
+    barChart($('#chSaz'),{labels:MESES,values:M.saz,yFmt:v=>fmtPct(v,0),tipFmt:v=>fmtPct(v,2),name:'ajuste',height:240,width:900});
+    const p=state.params.saz; const shareRows=PERIODS.map(([a,b])=>M.sharesFor(a,b,p.category));
+    const cols=['var(--s-hist)','var(--s-4)','var(--s-5)','var(--s-cycle)'];
+    lineChart($('#chShares'),{labels:MESES,xTicks:MESES.map((_,i)=>i),yFmt:v=>fmtPct(v,1,false),tipFmt:v=>fmtPct(v,2,false),height:260,width:900,
+      series:shareRows.map((sh,i)=>({name:`${PERIODS[i][0]}–${PERIODS[i][1]}`,color:cols[i],values:sh||MESES.map(()=>null),width:i===3?2.5:1.5}))});
+  }
+};
+
+/* ---------- Clima ---------- */
+const viewClima = {
+  html(){
+    const p=state.params.clima; const O=state.data.oni; const B=state.data.betas;
+    const last24 = O.months.slice(-30);
+    return `<div class="page-head"><div><h2>Clima (ENSO)</h2><p>O efeito climático é uma defasagem distribuída do índice ONI (Niño 3.4): para cada mês, soma-se <span class="num">β<sub>EN</sub>(k)·ONI⁺(t−k) + β<sub>LN</sub>(k)·ONI⁻(t−k)</span> para k de 0 a 30 meses, com ONI⁺ = max(0, ONI) e ONI⁻ = min(0, ONI). O resultado, em % do abate, multiplica a MM12 do ciclo. São necessários 31 meses de ONI para calcular um ponto.</p></div></div>
+      <div class="grid two"><div class="card"><h3>Comportamento após o fim da série de ONI</h3><p class="sub">Último ONI informado: <b>${M.lastOni?ymLabel(M.lastOni):'–'}</b>. A planilha zera o efeito quando falta ONI; a opção “neutro” assume ONI = 0 adiante e deixa os efeitos defasados dos meses já informados se dissiparem gradualmente.</p>
+        <div class="seg"><button type="button" data-path-btn="clima.afterOni|zero" class="${p.afterOni==='zero'?'on':''}">Zerar (planilha)</button><button type="button" data-path-btn="clima.afterOni|neutral" class="${p.afterOni==='neutral'?'on':''}">ONI neutro = 0</button></div>
+        <div class="fields" style="margin-top:14px">${numField('Escala do efeito climático','clima.scale',p.scale,0.1,'1 = betas como estimados; 0,5 = metade do efeito')}</div></div>
+      <div class="card"><h3>ONI mensal (edite ou cole)</h3><p class="sub">Cole linhas “AAAA-MM;valor” (ou separadas por tabulação) para acrescentar/atualizar meses, inclusive previsões do ONI para o futuro.</p>
+        <textarea id="oniPaste" placeholder="2027-06;-0.3&#10;2027-07;-0.5"></textarea><div class="toolbar" style="margin-top:8px"><button class="btn primary small" id="oniImport">Incorporar</button><button class="btn small" id="oniTrim">Remover último mês</button></div>
+        <div class="tbl-wrap" style="margin-top:10px;max-height:300px;overflow:auto"><table><thead><tr><th class="l">Mês</th><th>ONI</th><th>Efeito no abate</th></tr></thead><tbody>${last24.map((m,k)=>{ const i=O.months.indexOf(m); const e=M.climaAt(m); return `<tr><td class="l">${ymLabel(m)}</td><td><input type="text" data-oni="${i}" value="${O.values[i]??''}" inputmode="decimal" aria-label="ONI ${m}"></td><td class="${e<0?'neg':''}">${e==null?'–':fmtPct(e,2)}</td></tr>`; }).join('')}</tbody></table></div></div></div>
+      <div class="card"><h3>ONI observado e projetado</h3><div class="chart" id="chOni"></div></div>
+      <div class="card"><h3>Efeito climático sobre o abate (%)</h3><p class="sub">Área sombreada = horizonte de projeção.</p><div class="chart" id="chEff"></div></div>
+      <div class="card"><h3>Betas por defasagem (% do abate por ponto de ONI)</h3><p class="sub">Edite diretamente. β<sub>EN</sub> atua sobre El Niño (ONI &gt; 0) e β<sub>LN</sub> sobre La Niña (ONI &lt; 0). Soma dos betas: EN ${fmtNum(sum(B.en),3)} · LN ${fmtNum(sum(B.ln),3)}.</p><div class="chart" id="chBetas"></div>
+        <div class="legend"><span><i style="background:var(--s-proj)"></i>β El Niño</span><span><i style="background:var(--s-hist)"></i>β La Niña</span></div>
+        <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th class="l">Defasagem</th>${B.en.map((_,k)=>`<th>${k}</th>`).join('')}</tr></thead><tbody>
+          <tr><td class="l">β EN</td>${B.en.map((v,k)=>`<td><input type="text" data-beta="en|${k}" value="${v}" style="width:66px" aria-label="beta EN lag ${k}"></td>`).join('')}</tr>
+          <tr><td class="l">β LN</td>${B.ln.map((v,k)=>`<td><input type="text" data-beta="ln|${k}" value="${v}" style="width:66px" aria-label="beta LN lag ${k}"></td>`).join('')}</tr></tbody></table></div></div>`;
+  },
+  after(root){
+    $$('[data-path-btn]',root).forEach(b=>b.onclick=()=>{ const [p,v]=b.dataset.pathBtn.split('|'); setPath(state.params,p,v); markDirty(); render(); });
+    $$('[data-oni]',root).forEach(inp=>inp.onchange=()=>{ const i=+inp.dataset.oni; const v=parseFloat(inp.value.replace(',','.')); state.data.oni.values[i]=isNaN(v)?null:v; markDirty(); render(); });
+    $$('[data-beta]',root).forEach(inp=>inp.onchange=()=>{ const [k,i]=inp.dataset.beta.split('|'); const v=parseFloat(inp.value.replace(',','.')); if(!isNaN(v)){ state.data.betas[k][+i]=v; markDirty(); render(); } });
+    $('#oniImport').onclick=()=>{ const n=importSeries($('#oniPaste').value, (ym,vals)=>{ const O=state.data.oni; let i=O.months.indexOf(ym); if(i<0){ // completar meses até ym
+        let last=O.months[O.months.length-1]; while(ymIdx(last)<ymIdx(ym)){ last=ymAdd(last,1); O.months.push(last); O.values.push(null); } i=O.months.indexOf(ym); } O.values[i]=vals[0]; }); toast(`${n} meses de ONI incorporados.`); markDirty(); render(); };
+    $('#oniTrim').onclick=()=>{ state.data.oni.months.pop(); state.data.oni.values.pop(); markDirty(); render(); };
+    const O=state.data.oni; const i0=Math.max(0,O.months.length-96); const labels=O.months.slice(i0);
+    lineChart($('#chOni'),{labels,xTicks:monthTicks(labels),yFmt:v=>fmtNum(v,1),tipFmt:v=>fmtNum(v,2),tipTitle:i=>ymLabel(labels[i]),height:220,width:1000,zeroLine:true,yMin:-2,yMax:2,
+      series:[{name:'ONI',color:'var(--s-hist)',values:labels.map((_,k)=>O.values[i0+k]),width:2,area:true}]});
+    const eff=M.climaSeries.filter(e=>ymIdx(e.ym)>=ymIdx('2017-07')); const labels2=eff.map(e=>e.ym);
+    lineChart($('#chEff'),{labels:labels2,xTicks:monthTicks(labels2),yFmt:v=>fmtPct(v,0),tipFmt:v=>fmtPct(v,2),tipTitle:i=>ymLabel(labels2[i]),height:220,width:1000,zeroLine:true,bands:[{from:labels2.indexOf(M.months[M.fcStart]),to:labels2.length-1,label:'projeção'}].filter(b=>b.from>=0),
+      series:[{name:'Efeito clima',color:'var(--s-proj)',values:eff.map(e=>e.e),width:2,area:true}]});
+    const B=state.data.betas; const lags=B.en.map((_,k)=>String(k));
+    lineChart($('#chBetas'),{labels:lags,xTicks:lags.map((_,i)=>i).filter(i=>i%5===0),yFmt:v=>fmtNum(v,1),tipFmt:v=>fmtNum(v,4),tipTitle:i=>`defasagem ${i} meses`,height:220,width:1000,zeroLine:true,
+      series:[{name:'β El Niño',color:'var(--s-proj)',values:B.en,width:2},{name:'β La Niña',color:'var(--s-hist)',values:B.ln,width:2}]});
+  }
+};
+function parseNum(s){ s=String(s).trim(); if(s==='') return null; if (s.includes(',')&&s.includes('.')) s=s.replace(/\./g,'').replace(',','.'); else if (s.includes(',')) s=s.replace(',','.'); const v=parseFloat(s); return isNaN(v)?null:v; }
+function importSeries(text, apply){ let n=0; text.split(/\r?\n/).forEach(line=>{ const parts=line.trim().split(/[;\t]/).map(s=>s.trim()); if(parts.length<2) return; let ym=parts[0]; const mm=ym.match(/^(\d{4})-(\d{1,2})/); const alt=ym.match(/^(\d{1,2})\/(\d{4})$/); if(mm) ym=`${mm[1]}-${mm[2].padStart(2,'0')}`; else if(alt) ym=`${alt[2]}-${alt[1].padStart(2,'0')}`; else return; const vals=parts.slice(1).map(parseNum); apply(ym,vals); n++; }); return n; }
+
+/* ---------- Cota China ---------- */
+const viewCota = {
+  html(){
+    const q=state.params.cota; const pr=M.refProfile;
+    const ovRows = Object.entries(q.overrides||{}).map(([ym,v])=>`<tr><td class="l">${ymLabel(ym)}</td><td>${v==='em_cota'?'valor “em cota”':v==='zero'?'sem efeito':fmtPct(v,2)}</td><td>${fmtPct(M.cotaAt(ym),2)}</td><td><button class="btn small ghost" data-ovdel="${ym}">Remover</button></td></tr>`).join('');
+    return `<div class="page-head"><div><h2>Cota China</h2><p>Quando a cota de importação da China se esgota, a parcela da carne brasileira que iria para lá precisa ser redirecionada; a parte não absorvida por outros destinos ou pelo mercado interno reduz o abate. O modelo calcula a queda anual, concentra-a nos meses fora da cota (proporcionalmente aos dias) e distribui o restante como um pequeno ajuste nos meses em cota, de modo que o efeito anual feche com a premissa.</p></div></div>
+      <div class="grid two"><div class="card"><h3>Premissas</h3><div class="fields">
+        ${numField('Produção brasileira (kt CWE)','cota.prod',q.prod,100)}
+        ${numField('Exportação Brasil→China pré-cota (kt)','cota.expPre',q.expPre,50,'expectativa USDA antes da cota')}
+        ${numField('Cota + ganho em outros destinos (kt)','cota.cota',q.cota,50,'volume que ainda se escoa à China/outros')}
+        ${numField('Redirecionamento doméstico/outros','cota.redir',q.redir,0.05,'fração absorvida (0–1)',{min:0})}</div>
+        <h3 style="margin-top:16px">Episódios fora de cota</h3><p class="sub">Datas no elo do abate (há defasagem entre embarque e abate).</p>
+        <div class="tbl-wrap"><table><thead><tr><th class="l">Fim da cota (saída)</th><th class="l">Volta da cota (retorno)</th><th></th></tr></thead><tbody>${q.episodes.map((ep,i)=>`<tr><td class="l"><input type="date" value="${ep.fim}" data-ep="${i}|fim" style="width:150px;text-align:left" aria-label="fim da cota ${i+1}"></td><td class="l"><input type="date" value="${ep.ini}" data-ep="${i}|ini" style="width:150px;text-align:left" aria-label="retorno da cota ${i+1}"></td><td>${q.episodes.length>1?`<button class="btn small ghost" data-epdel="${i}">Remover</button>`:''}</td></tr>`).join('')}</tbody></table></div>
+        <div class="toolbar" style="margin-top:8px"><button class="btn small" id="epAdd">Adicionar episódio</button><label class="toggle"><input type="checkbox" data-path="cota.repeat" ${q.repeat?'checked':''} id="f_cota_repeat"> Repetir o perfil mensal em todos os anos (planilha)</label></div>
+        <p class="hint" style="margin-top:6px">Desligado, cada ano usa apenas os episódios com datas naquele ano e anos sem episódio ficam sem efeito.</p></div>
+      <div class="card"><h3>Resultados derivados</h3><div class="derived">
+        <div>Parcela da carne BR que vai à China<b>${fmtPct(q.expPre/q.prod,1,false)}</b></div>
+        <div>Queda da exportação à China<b>${fmtPct(q.cota/q.expPre-1,1)}</b></div>
+        <div>Queda anual do abate<b>${fmtPct(M.qa,2)}</b></div>
+        <div>Queda nos meses fora de cota<b>${fmtPct(M.qf,2)}</b></div>
+        <div>Meses fora de cota (perfil ${Object.keys(M.profiles)[0]||''})<b>${fmtNum(pr.fora,2)}</b></div>
+        <div>Ajuste nos meses em cota<b>${fmtPct(pr.plus,2)}</b></div></div>
+        <h3 style="margin-top:16px">Perfil mensal do efeito</h3><div class="chart" id="chCota"></div>
+        <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th class="l">Mês</th><th>% dias fora de cota</th><th>Efeito</th></tr></thead><tbody>${MESES.map((m,i)=>`<tr><td class="l">${m}</td><td>${fmtPct(pr.fr[i],1,false)}</td><td class="${pr.eff[i]<0?'neg':''}">${fmtPct(pr.eff[i],2)}</td></tr>`).join('')}</tbody></table></div></div></div>
+      <div class="card"><h3>Ajustes manuais por mês</h3><p class="sub">A planilha força novembro/2026 a usar o valor “em cota” (célula H360 = H361). Mantido aqui como ajuste explícito; remova ou acrescente outros.</p>
+        <div class="tbl-wrap"><table><thead><tr><th class="l">Mês</th><th>Regra</th><th>Efeito resultante</th><th></th></tr></thead><tbody>${ovRows||'<tr><td colspan="4" class="l" style="font-weight:400;color:var(--muted)">Nenhum ajuste manual.</td></tr>'}</tbody></table></div>
+        <div class="toolbar" style="margin-top:10px"><input type="month" id="ovMonth" value="${M.months[M.fcStart]}" style="border:1px solid var(--line-strong);border-radius:8px;padding:6px 9px"><select id="ovKind" style="border:1px solid var(--line-strong);border-radius:8px;padding:6px 9px"><option value="em_cota">usar valor “em cota”</option><option value="zero">sem efeito</option><option value="valor">valor específico (%)</option></select><input type="text" id="ovVal" placeholder="−5,0" style="width:90px;border:1px solid var(--line-strong);border-radius:8px;padding:6px 9px" inputmode="decimal"><button class="btn small primary" id="ovAdd">Adicionar</button></div></div>`;
+  },
+  after(root){
+    $$('[data-ep]',root).forEach(inp=>inp.onchange=()=>{ const [i,k]=inp.dataset.ep.split('|'); if(/^\d{4}-\d{2}-\d{2}$/.test(inp.value)){ state.params.cota.episodes[+i][k]=inp.value; markDirty(); render(); } });
+    $$('[data-epdel]',root).forEach(b=>b.onclick=()=>{ state.params.cota.episodes.splice(+b.dataset.epdel,1); markDirty(); render(); });
+    $('#epAdd').onclick=()=>{ const last=state.params.cota.episodes[state.params.cota.episodes.length-1]; const y=+last.fim.slice(0,4)+1; state.params.cota.episodes.push({fim:`${y}${last.fim.slice(4)}`, ini:`${+last.ini.slice(0,4)+1}${last.ini.slice(4)}`}); markDirty(); render(); };
+    $$('[data-ovdel]',root).forEach(b=>b.onclick=()=>{ delete state.params.cota.overrides[b.dataset.ovdel]; markDirty(); render(); });
+    $('#ovAdd').onclick=()=>{ const ym=$('#ovMonth').value, kind=$('#ovKind').value; if(!/^\d{4}-\d{2}$/.test(ym)) return; state.params.cota.overrides ??= {}; if(kind==='valor'){ const v=parseFloat($('#ovVal').value.replace(',','.')); if(isNaN(v)) return; state.params.cota.overrides[ym]=v/100; } else state.params.cota.overrides[ym]=kind; markDirty(); render(); };
+    barChart($('#chCota'),{labels:MESES,values:M.refProfile.eff,yFmt:v=>fmtPct(v,0),tipFmt:v=>fmtPct(v,2),name:'efeito cota',height:220,width:700,color:'var(--neg)'});
+  }
+};
+
+/* ---------- Dados ---------- */
+const viewDados = {
+  html(){
+    const H=state.data.hist; const r=M.reg; const p=state.params.regress;
+    const rows=[]; for (let i=H.months.length-1;i>=Math.max(0,H.months.length-(+ui.dataRows));i--){ const k=M.months.indexOf(H.months[i]); rows.push(`<tr><td class="l">${ymLabel(H.months[i])}</td><td><input type="text" data-hist="total|${i}" value="${H.total[i]??''}" inputmode="numeric" aria-label="IBGE ${H.months[i]}" placeholder="${M.source[k]==='sif'?Math.round(M.total[k]):''}"></td><td><input type="text" data-hist="sif|${i}" value="${H.sif[i]??''}" inputmode="numeric" aria-label="SIF ${H.months[i]}"></td><td><span class="pill ${M.source[k]||'proj'}">${M.source[k]==='ibge'?'IBGE':M.source[k]==='sif'?'via SIF':'–'}</span></td><td>${fmtNum(H.total[i]&&H.sif[i]?H.sif[i]/H.total[i]:null,3)}</td><td>${fmtMil(M.mm12[k],0)}</td></tr>`); }
+    const C=state.data.cat; const clast=C.months.slice(-12).reverse();
+    return `<div class="page-head"><div><h2>Dados e regressão SIF</h2><p>Base mensal do abate total (IBGE) e do abate sob inspeção federal (SIF). O SIF sai antes do IBGE; para os meses em que só há SIF, o total é estimado por <span class="num">TOTAL = a + b × SIF</span>. Cole novas linhas para atualizar a base quando saírem os dados; a planilha exigia estender manualmente as fórmulas.</p></div></div>
+      <div class="grid two"><div class="card"><h3>Regressão TOTAL ~ SIF</h3>
+        <div class="seg"><button type="button" data-path-btn="regress.mode|fixed" class="${p.mode==='fixed'?'on':''}">Coeficientes fixos (planilha)</button><button type="button" data-path-btn="regress.mode|fit" class="${p.mode==='fit'?'on':''}">Reestimar na janela</button></div>
+        <div class="fields" style="margin-top:12px">${p.mode==='fixed'?`${numField('a · intercepto','regress.a',p.a,1000)}${numField('b · inclinação','regress.b',p.b,0.01)}`:`<div class="field"><label>Janela a partir de</label><input type="month" value="${p.fitStart}" data-path="regress.fitStart" id="f_fitStart"></div>`}</div>
+        <div class="derived"><div>Coeficientes em uso<b>a = ${fmtInt(r.a)} · b = ${fmtNum(r.b,4)}</b></div>${r.fixed&&r.check?`<div>Reestimativa na janela (${p.fitStart}→)<b>a = ${fmtInt(r.check.a)} · b = ${fmtNum(r.check.b,4)} · R² ${fmtNum(r.check.r2,4)} · n = ${r.check.n}</b></div>`:''}${!r.fixed?`<div>Qualidade<b>R² ${fmtNum(r.r2,4)} · n = ${r.n} · erro-padrão ${fmtInt(r.se)}</b></div>`:''}</div>
+        <p class="hint" style="margin-top:8px">A planilha reporta R² 0,973 e erro-padrão ≈ 70,8 mil cabeças (123 observações). Último IBGE: <b>${ymLabel(M.months[M.lastKnown-M.source.slice(0,M.lastKnown+1).reverse().findIndex(s=>s==='ibge')])}</b>; último SIF: <b>${ymLabel(M.months[M.lastKnown])}</b>.</p>
+        <h3 style="margin-top:16px">Horizonte</h3><div class="fields"><div class="field"><label>Projetar até</label><input type="month" value="${state.params.horizonEnd}" data-path="horizonEnd" id="f_horizon"></div></div></div>
+      <div class="card"><h3>Importar / colar dados</h3><p class="sub">Formato por linha: <span class="num">AAAA-MM;TOTAL;SIF</span> (ou mm/AAAA). Deixe o TOTAL vazio para meses só com SIF. Linhas de meses existentes são substituídas; meses novos são acrescentados.</p>
+        <textarea id="histPaste" placeholder="2026-10;;2190000&#10;2026-07;3100000;2206770"></textarea>
+        <div class="toolbar" style="margin-top:8px"><button class="btn primary small" id="histImport">Incorporar IBGE/SIF</button><div class="sep"></div><button class="btn small" id="catImportBtn">Importar categorias…</button><button class="btn small" id="dlCsv">Baixar série completa (CSV)</button></div>
+        <h3 style="margin-top:16px">Abate por categoria (últimos 12 meses)</h3><p class="sub">Alimenta a sazonalidade. Último mês: ${ymLabel(C.months[C.months.length-1])}.</p>
+        <div class="tbl-wrap"><table><thead><tr><th class="l">Mês</th><th>Bois</th><th>Novilhos</th><th>Vacas</th><th>Novilhas</th><th>Total</th></tr></thead><tbody>${clast.map(m=>{ const i=C.months.indexOf(m); return `<tr><td class="l">${ymLabel(m)}</td><td>${fmtInt(C.bois[i])}</td><td>${fmtInt(C.novilhos[i])}</td><td>${fmtInt(C.vacas[i])}</td><td>${fmtInt(C.novilhas[i])}</td><td>${fmtInt(C.bois[i]+C.novilhos[i]+C.vacas[i]+C.novilhas[i])}</td></tr>`; }).join('')}</tbody></table></div></div></div>
+      <div class="card"><h3>Série mensal IBGE × SIF (edite diretamente)</h3><div class="toolbar" style="margin-bottom:8px">${seg('dataRows',[['24','24 meses'],['60','5 anos'],['400','tudo']])}</div>
+        <div class="tbl-wrap" style="max-height:520px;overflow:auto"><table><thead><tr><th class="l">Mês</th><th>IBGE total</th><th>SIF</th><th>Origem</th><th>SIF/Total</th><th>MM12 (mil)</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></div>`;
+  },
+  after(root){
+    $$('[data-path-btn]',root).forEach(b=>b.onclick=()=>{ const [p,v]=b.dataset.pathBtn.split('|'); setPath(state.params,p,v); markDirty(); render(); });
+    $$('[data-hist]',root).forEach(inp=>inp.onchange=()=>{ const [k,i]=inp.dataset.hist.split('|'); const v=parseFloat(inp.value.replace(/\./g,'').replace(',','.')); state.data.hist[k][+i]=isNaN(v)?null:v; markDirty(); render(); });
+    $('#histImport').onclick=()=>{ const H=state.data.hist; const n=importSeries($('#histPaste').value,(ym,vals)=>{ let i=H.months.indexOf(ym); if(i<0){ let last=H.months[H.months.length-1]; while(ymIdx(last)<ymIdx(ym)){ last=ymAdd(last,1); H.months.push(last); H.total.push(null); H.sif.push(null); } i=H.months.indexOf(ym); } if(vals[0]!=null&&!isNaN(vals[0])) H.total[i]=vals[0]; else if(vals.length>=1&&vals[0]==null) H.total[i]=null; if(vals[1]!=null&&!isNaN(vals[1])) H.sif[i]=vals[1]; }); toast(`${n} linhas incorporadas.`); markDirty(); render(); };
+    $('#catImportBtn').onclick=()=>{ openModal(`<h2>Importar abate por categoria</h2><p class="sub">Formato: <span class="num">AAAA-MM;Bois;Novilhos;Vacas;Novilhas</span>. Meses existentes são substituídos.</p><textarea id="catPaste" style="min-height:220px;font-family:var(--font-num);font-size:12px;border:1px solid var(--line-strong);border-radius:8px;padding:8px"></textarea><div class="toolbar"><button class="btn primary" id="catGo">Incorporar</button><button class="btn" id="mClose">Cancelar</button></div>`); $('#mClose').onclick=closeModal; $('#catGo').onclick=()=>{ const C=state.data.cat; const n=importSeries($('#catPaste').value,(ym,v)=>{ if(v.length<4) return; let i=C.months.indexOf(ym); if(i<0){ C.months.push(ym); ['bois','novilhos','vacas','novilhas'].forEach(k=>C[k].push(0)); i=C.months.length-1; const order=C.months.map((m,j)=>j).sort((a,b)=>ymIdx(C.months[a])-ymIdx(C.months[b])); ['months','bois','novilhos','vacas','novilhas'].forEach(k=>C[k]=order.map(j=>C[k][j])); i=C.months.indexOf(ym); } C.bois[i]=v[0]||0; C.novilhos[i]=v[1]||0; C.vacas[i]=v[2]||0; C.novilhas[i]=v[3]||0; }); closeModal(); toast(`${n} meses de categorias incorporados.`); markDirty(); render(); }; };
+    $('#dlCsv').onclick=()=>{ const lines=['mes;abate;origem;mm12_ou_ciclo;saz;clima;cota']; M.months.forEach((ym,i)=>{ if(M.series[i]==null) return; const f=M.fcMap.get(ym); lines.push([ym,Math.round(M.series[i]),i>M.lastKnown?'projecao':M.source[i],(i>M.lastKnown?Math.round(M.base[i]):(M.mm12[i]!=null?Math.round(M.mm12[i]):'')),f?(f.sOn*100).toFixed(3):'',f?(f.cOn*100).toFixed(3):'',f?(f.qOn*100).toFixed(3):''].join(';')); }); download('previsao_abate.csv',lines.join('\n')); };
+  }
+};
+
+/* ---------- Sobre ---------- */
+const viewSobre = { html(){ return `<div class="page-head"><div><h2>Como o modelo funciona</h2><p>Mapa do modelo original em Excel para os blocos deste app, com as decisões que foram preservadas e as que foram explicitadas.</p></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th class="l">Aba da planilha</th><th class="l">Bloco no app</th><th class="l">O que faz</th></tr></thead><tbody>
+    <tr><td class="l">“Previsão do Passado”</td><td class="l" style="font-weight:400">Dados e regressão SIF</td><td class="l" style="font-weight:400">Histórico IBGE/SIF desde 1997, regressão TOTAL = a + b·SIF para os meses em que só há SIF, média móvel de 12 meses.</td></tr>
+    <tr><td class="l">Modelo</td><td class="l" style="font-weight:400">Ciclo pecuário</td><td class="l" style="font-weight:400">Ciclos alinhados pelo vale da MM12 e cosseno A + B·cos(C·t + D) para prolongar o ciclo corrente.</td></tr>
+    <tr><td class="l">Sazonalidade</td><td class="l" style="font-weight:400">Sazonalidade</td><td class="l" style="font-weight:400">Participação mensal por categoria e período (tabelas dinâmicas); ajuste = 12 × participação − 1 (2021–2025, total).</td></tr>
+    <tr><td class="l">Clima</td><td class="l" style="font-weight:400">Clima (ENSO)</td><td class="l" style="font-weight:400">Defasagem distribuída de 31 meses do ONI, com betas distintos para El Niño e La Niña.</td></tr>
+    <tr><td class="l">Cota China</td><td class="l" style="font-weight:400">Cota China</td><td class="l" style="font-weight:400">Queda anual a partir das premissas de volume e redirecionamento, concentrada nos meses fora de cota por fração de dias.</td></tr>
+    <tr><td class="l">Série Temporal</td><td class="l" style="font-weight:400">Painel · Decomposição</td><td class="l" style="font-weight:400">Abate projetado = MM12 × (1+saz) × (1+clima) × (1+cota); somas anuais.</td></tr>
+    <tr><td class="l">Min Max · Tabela</td><td class="l" style="font-weight:400">Painel (tabela mensal e semestres)</td><td class="l" style="font-weight:400">Visualização anual por mês com variações.</td></tr></tbody></table></div></div>
+  <div class="card"><h3>Diferenças deliberadas em relação à planilha</h3><div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+    <p class="note"><b>Efeito climático de maio/2027.</b> A fórmula da Série Temporal busca o efeito em <span class="num">Clima!I2:M150</span>, mas maio/2027 está na linha 151; o INDEX falha e o IFERROR devolve 0, embora a aba Clima calcule −2,69% para o mês. O app usa o valor calculado, o que reduz 2027 em cerca de 88 mil cabeças em relação ao número da planilha. A comparação no Painel mostra essa única diferença.</p>
+    <p class="note"><b>Soma anual de 2026 na Série Temporal.</b> A célula D399 soma D350:D361, mas a coluna D só começa em setembro/2026, por isso mostra 13,3 milhões. A aba Tabela traz o valor correto (40,46 milhões), que é o que o app usa.</p>
+    <p class="note"><b>Ciclos 1 e 2.</b> Os valores colados na aba Modelo diferem em poucos milhares de cabeças da MM12 recalculada sobre a base atual do IBGE (revisões de dados). O app recalcula tudo a partir da base, de modo que uma revisão do IBGE propaga para os ciclos.</p>
+    <p class="note"><b>Ajustes manuais e safras.</b> O app acrescenta à planilha a possibilidade de fixar meses projetados à mão (Painel), que aparecem como um passo “Manual” na Decomposição, e o registro de safras de previsão para comparação com o realizado (Previsto × Realizado). Nenhum dos dois altera o motor do modelo.</p>
+    <p class="note"><b>Novembro/2026 na cota.</b> A planilha força o mês a usar o valor “em cota” (H360 = H361). O app preserva isso como um ajuste manual explícito e removível, na página Cota China.</p></div></div>`; } };
+
+
+/* ===================== exportação Excel (estrutura da planilha original) ===================== */
+const COL = n => { let s=''; n=n+1; while(n>0){ const r=(n-1)%26; s=String.fromCharCode(65+r)+s; n=Math.floor((n-1)/26); } return s; };
+const xlDate = ym => { const [y,m]=ym.split('-').map(Number); return Math.round((Date.UTC(y,m-1,1)-Date.UTC(1899,11,30))/86400000); };
+const xlDay = s => { const [y,m,d]=s.split('-').map(Number); return Math.round((Date.UTC(y,m-1,d)-Date.UTC(1899,11,30))/86400000); };
+function xlBuild(XLSX){
+  const P=state.params, D=state.data, H=D.hist; const SH={};
+  const sheet=(name)=>{ const o={cells:{}, cols:[]}; SH[name]=o; return o; };
+  const put=(o,addr,v,opt)=>{ if (v==null) return; let c; if (typeof v==='object' && v.f!=null) c={t:'n',f:v.f}; else if (typeof v==='number') c={t:'n',v}; else c={t:'s',v:String(v)}; if(opt&&opt.z) c.z=opt.z; if(opt&&opt.v!=null) c.v=opt.v; o.cells[addr]=c; };
+  const date=(o,addr,ym)=>put(o,addr,xlDate(ym),{z:'mmm-yy'});
+  const F=f=>({f});
+  // ---------- Previsão do Passado ----------
+  const pp=sheet('Previsão do Passado'); const PPN="'Previsão do Passado'";
+  ['Data','TOTAL','SIF','Rep','Média móvel 12m','mil'].forEach((h,k)=>put(pp,COL(k)+'1',h));
+  const nH=H.months.length; const rowOf=ym=>2+H.months.indexOf(ym);
+  H.months.forEach((ym,i)=>{ const r=2+i; date(pp,'A'+r,ym); const k=M.months.indexOf(ym); const src=M.source[k];
+    if (src==='ibge') put(pp,'B'+r,H.total[i]); else if (src==='sif') put(pp,'B'+r,F(`$I$19+$I$20*C${r}`));
+    put(pp,'C'+r,H.sif[i]); if (H.sif[i]!=null && src) put(pp,'D'+r,F(`C${r}/B${r}`)); if (i>=11 && src) put(pp,'E'+r,F(`AVERAGE(B${r-11}:B${r})`)); if (src) put(pp,'F'+r,F(`B${r}/1000`)); });
+  const rg=M.reg, rc=rg.fixed? rg.check : rg;
+  put(pp,'H3','RESUMO DOS RESULTADOS'); put(pp,'H5','Estatística de regressão');
+  [['R múltiplo', rc&&rc.r2!=null?Math.sqrt(rc.r2):null],['R-Quadrado',rc?rc.r2:null],['Erro padrão',rc?rc.se:null],['Observações',rc?rc.n:null]].forEach((x,k)=>{ put(pp,'H'+(6+k),x[0]); put(pp,'I'+(6+k),x[1]); });
+  put(pp,'H11', rg.fixed? 'Coeficientes fixos herdados da planilha original (estatísticas acima reestimadas na janela '+P.regress.fitStart+'→)' : 'Coeficientes reestimados pelo app na janela '+P.regress.fitStart+'→');
+  put(pp,'I18','Coeficientes'); put(pp,'H19','Interseção'); put(pp,'I19',rg.a); put(pp,'H20','Variável X 1'); put(pp,'I20',rg.b);
+  // ---------- Sazonalidade ----------
+  const sz=sheet('Sazonalidade'); const C=D.cat;
+  ['CABEÇAS','Bois','Novilhos','Vacas','Novilhas','Total machos','Total fêmeas','Total'].forEach((h,k)=>put(sz,COL(k)+'1',h));
+  C.months.forEach((ym,i)=>{ const r=2+i; date(sz,'A'+r,ym); put(sz,'B'+r,C.bois[i]); put(sz,'C'+r,C.novilhos[i]); put(sz,'D'+r,C.vacas[i]); put(sz,'E'+r,C.novilhas[i]); put(sz,'F'+r,F(`B${r}+C${r}`)); put(sz,'G'+r,F(`D${r}+E${r}`)); put(sz,'H'+r,F(`F${r}+G${r}`)); });
+  const blocks=[['bois','Bois'],['novilhos','Novilhos'],['vacas','Vacas'],['novilhas','Novilhas'],['machos','Total machos'],['femeas','Total fêmeas'],['total','Total']];
+  blocks.forEach(([key,label],b)=>{ const R0=1+18*b; const colsL=['J','M','P','S'], colsV=['K','N','Q','T'];
+    PERIODS.forEach(([y0,y1],p)=>{ put(sz,colsL[p]+R0,`${y0}-${y1}`); put(sz,colsL[p]+(R0+1),'Anos (CABEÇAS)'); put(sz,colsV[p]+(R0+1),'(Vários itens)'); put(sz,colsL[p]+(R0+3),'Rótulos de Linha'); put(sz,colsV[p]+(R0+3),'Soma de '+label);
+      const sh=M.sharesFor(y0,y1,key); MESES.forEach((m,k)=>{ put(sz,colsL[p]+(R0+4+k),m); put(sz,colsV[p]+(R0+4+k),sh?sh[k]:null); }); put(sz,colsL[p]+(R0+16),'Total Geral'); put(sz,colsV[p]+(R0+16),1);
+      put(sz,['W','X','Y','Z'][p]+(R0+3),`${y0}-${y1}`); MESES.forEach((m,k)=>{ put(sz,'V'+(R0+4+k),m.charAt(0).toUpperCase()+m.slice(1)); put(sz,['W','X','Y','Z'][p]+(R0+4+k),F(`${colsV[p]}${R0+4+k}`)); }); }); });
+  put(sz,'Z128','AGORA'); const sazDefault = P.saz.category==='total' && P.saz.yearFrom===2021 && P.saz.yearTo===2025 && !P.saz.manual;
+  put(sz,'AA128', sazDefault? 'ajuste = participação / média − 1 (Total, 2021–2025)' : `ajuste aplicado no app: ${CATS.find(c=>c[0]===P.saz.category)[1]} ${P.saz.yearFrom}–${P.saz.yearTo}${P.saz.manual?' com ajustes manuais':''} (valores)`);
+  MESES.forEach((m,k)=>{ put(sz,'X'+(129+k),m); put(sz,'Y'+(129+k),k+1); put(sz,'Z'+(129+k), sazDefault? F(`Z${113+k}/AVERAGE($Z$113:$Z$124)-1`) : M.saz[k]); });
+  // ---------- Clima ----------
+  const cl=sheet('Clima'); ['Lag (meses)','beta El Niño (%/ONI)','beta La Niña (%/ONI)','lag (rev)','betaEN rev','betaLN rev'].forEach((h,k)=>put(cl,COL(1+k)+'2',h));
+  for (let k=0;k<=30;k++){ const r=3+k; put(cl,'B'+r,k); put(cl,'C'+r,D.betas.en[k]); put(cl,'D'+r,D.betas.ln[k]); put(cl,'E'+r,30-k); put(cl,'F'+r,D.betas.en[30-k]); put(cl,'G'+r,D.betas.ln[30-k]); }
+  put(cl,'B36','Soma dos betas'); put(cl,'C36',F('SUM(C3:C33)')); put(cl,'D36',F('SUM(D3:D33)'));
+  ['Mês','ONI (Niño 3.4)','ONI+ (El Niño)','ONI- (La Niña)','Efeito % s/ abate'].forEach((h,k)=>put(cl,COL(8+k)+'2',h));
+  const O=D.oni; const oniStart=ymIdx(O.months[0]); const oniEnd=Math.max(ymIdx(O.months[O.months.length-1]), ymIdx(P.horizonEnd)); let lastOniRow=2;
+  for (let i=oniStart;i<=oniEnd;i++){ const ym=idxYm(i); const r=3+(i-oniStart); lastOniRow=r; date(cl,'I'+r,ym); const v=M.oniAt(ym); if (v!=null) put(cl,'J'+r,v);
+    put(cl,'K'+r,F(`IF(J${r}="","",MAX(0,J${r}))`)); put(cl,'L'+r,F(`IF(J${r}="","",MIN(0,J${r}))`)); if (r>=33) put(cl,'M'+r,F(`IF(COUNT(K${r-30}:K${r})<31,"",(SUMPRODUCT($F$3:$F$33,K${r-30}:K${r})+SUMPRODUCT($G$3:$G$33,L${r-30}:L${r}))*${P.clima.scale??1})`)); }
+  put(cl,'O2', P.clima.afterOni==='neutral'? 'Após o último ONI informado, o app assume ONI = 0 (neutro); os zeros abaixo reproduzem isso.' : 'Após o último ONI informado o efeito é zerado (como na planilha original).');
+  // ---------- Cota China ----------
+  const cc=sheet('Cota China'); const Q=P.cota; const ep=Q.episodes[0];
+  put(cc,'B2','Premissas'); [['Producão Brasileira',Q.prod,'ktonCWE'],['Expectativa exp bra-chi usda pre-cota',Q.expPre,'ktonCWE'],['Cota + aumento outros países',Q.cota,'ktonCWE'],['Porcentagem de redirecionamento doméstico/outros destinos',Q.redir,null]].forEach((x,k)=>{ put(cc,'B'+(3+k),x[0]); put(cc,'C'+(3+k),x[1]); put(cc,'D'+(3+k),x[2]); });
+  put(cc,'B7','Fim da cota no elo do abate'); put(cc,'C7',xlDay(ep.fim),{z:'dd/mm/yyyy'}); put(cc,'B8','Inicio da cota no elo do abate'); put(cc,'C8',xlDay(ep.ini),{z:'dd/mm/yyyy'});
+  put(cc,'B10','Outputs'); [['Meses fora de cota','SUM(D20:D31)'],['Meses em cota','12-C11'],['Quanto da carne brasileira vai pra china','C4/C3'],['Queda exportacao china','C5/C4-1'],['Queda anual','(C5-C4)*(1-C6)*1/C3'],['Queda fora de cota','-C13*(1-C6)'],['Plus em cota','(12*C15-C11*C16)/C12']].forEach((x,k)=>{ put(cc,'B'+(11+k),x[0]); put(cc,'C'+(11+k),F(x[1])); });
+  put(cc,'B19','Mês'); put(cc,'C19','Efeito China'); put(cc,'D19','% fora cota');
+  for (let m=1;m<=12;m++){ const r=19+m; put(cc,'B'+r,m); put(cc,'C'+r,F(`$C$17+D${r}*($C$16-$C$17)`)); put(cc,'D'+r,F(`MAX(0, MIN($C$8, EOMONTH(DATE(YEAR($C$7),B${r},1),0)+1) - MAX($C$7, DATE(YEAR($C$7),B${r},1))) / (EOMONTH(DATE(YEAR($C$7),B${r},1),0)+1-DATE(YEAR($C$7),B${r},1))`)); }
+  if (Q.episodes.length>1 || !Q.repeat) put(cc,'F19',`Atenção: o app usa ${Q.episodes.length} episódio(s) e ${Q.repeat?'repete o perfil todos os anos':'aplica datas por ano'}; a Série Temporal traz os efeitos mensais resultantes como valores.`);
+  // ---------- Modelo ----------
+  const md=sheet('Modelo'); const nc=M.cycles.length; const tNow=M.tOf(M.lastKnown); const tMax=Math.max(...M.cycles.map(c=>c.values.length), M.tOf(M.N-1)+24);
+  M.cycles.forEach((cy,ci)=>{ put(md,COL(1+ci)+'1',cy.label); put(md,COL(1+ci)+'2',`${ymLabel(cy.start)}${cy.open?' ~':' - '+ymLabel(cy.end)}`); }); put(md,'A2','Meses');
+  const curCol=COL(nc); // coluna do ciclo corrente
+  for (let t=1;t<=tMax;t++){ const r=2+t; put(md,'A'+r,t);
+    M.cycles.forEach((cy,ci)=>{ if (!cy.open){ if (cy.values[t-1]!=null) put(md,COL(1+ci)+r,cy.values[t-1]); } else { if (t<=tNow){ const ym=ymAdd(cy.start,t-1); if (H.months.includes(ym) && cy.values[t-1]!=null) put(md,curCol+r,F(`${PPN}!E${rowOf(ym)}`)); } else put(md,curCol+r,F(`$I$8+$I$11*COS($I$14*A${r}+$I$17)`)); } }); }
+  put(md,'I5','PARÂMETROS'); put(md,'I7','A'); put(md,'I8',P.cycle.A); put(md,'I10','B'); put(md,'I11',P.cycle.B); put(md,'I13','C'); put(md,'I14',P.cycle.C); put(md,'I16','D'); put(md,'I17',P.cycle.D);
+  ['A = DESLOCA VERTICAL','B = AMPLITUDE','C = VELOCIDADE/INCLINAÇÃO','D = DESLOCA HORIZONTAL'].forEach((x,k)=>put(md,'I'+(20+k),x));
+  M.cycles.forEach((cy,ci)=>{ const c=COL(13+ci); const col=COL(1+ci); const last=2+ (cy.open? tNow : cy.values.length); put(md,c+'6',cy.label); put(md,c+'7',F(`COUNT(${col}3:${col}${last})`)); put(md,c+'8',F(`MIN(${col}3:${col}${last})`)); put(md,c+'9',F(`MAX(${col}3:${col}${last})`)); put(md,c+'10',F(`${c}9-${c}8`)); });
+  ['Período','Min','Max','Amplitude'].forEach((x,k)=>put(md,'L'+(7+k),x));
+  // ---------- Série Temporal ----------
+  const st=sheet('Série Temporal'); ['Mês','Abate atual','Média Móvel Real','Abate projetado','Média Móvel Prevista','Ajuste Sazonal','Ajuste Climático','Ajuste Cota China','Ajuste manual'].forEach((h,k)=>put(st,COL(k)+'1',h));
+  const climaRange=`Clima!$I$2:$M$${lastOniRow}`, climaKeys=`Clima!$I$2:$I$${lastOniRow}`;
+  M.months.forEach((ym,i)=>{ const r=2+i; date(st,'A'+r,ym);
+    if (i<=M.lastKnown){ if (H.months.includes(ym)) put(st,'B'+r,F(`${PPN}!B${rowOf(ym)}`)); if (i>=11) put(st,'C'+r,F(`AVERAGE(B${r-11}:B${r})`)); }
+    if (i===M.lastKnown){ put(st,'D'+r,F(`B${r}`)); put(st,'E'+r,F(`C${r}`)); }
+    if (i>=M.lastKnown){ const f=M.fcMap.get(ym);
+      put(st,'F'+r, P.effects.saz? F(`VLOOKUP(MONTH(A${r}),Sazonalidade!$Y$129:$Z$140,2,FALSE)`) : 0);
+      put(st,'G'+r, P.effects.clima? F(`IFERROR(INDEX(${climaRange},MATCH(A${r},${climaKeys},0),5)/100,0)`) : 0);
+      const q = f? f.q : M.cotaAt(ym); const ov = Q.overrides && Q.overrides[ym]; const simpleCota = Q.repeat && Q.episodes.length===1 && !ov;
+      put(st,'H'+r, !P.effects.cota? 0 : (simpleCota? F(`VLOOKUP(MONTH(A${r}),'Cota China'!$B$19:$C$31,2,FALSE)`) : q));
+      if (i>M.lastKnown){ put(st,'E'+r,F(`Modelo!${curCol}${2+M.tOf(i)}`)); if (f.manual!=null){ put(st,'I'+r,f.manual); put(st,'D'+r,F(`I${r}`)); } else put(st,'D'+r,F(`E${r}*(1+F${r})*(1+G${r})*(1+H${r})`)); } } });
+  const yrs=[...new Set(M.months.map(yearOf))].filter(y=>M.years[y]); let rr=M.N+6; put(st,'C'+(rr-1),'Ano'); put(st,'D'+(rr-1),'Milhões de cabeças'); put(st,'E'+(rr-1),'Mil cabeças');
+  yrs.filter(y=>y>=2019).forEach(y=>{ const i1=M.months.indexOf(`${y}-01`), i2=M.months.indexOf(`${y}-12`); if(i1<0||i2<0) return; const parts=[]; const realEnd=Math.min(i2,M.lastKnown); if (realEnd>=i1) parts.push(`SUM(B${2+i1}:B${2+realEnd})`); const projStart=Math.max(i1,M.lastKnown+1); if (projStart<=i2) parts.push(`SUM(D${2+projStart}:D${2+i2})`); put(st,'C'+rr,y); put(st,'D'+rr,F(`(${parts.join('+')})/1000000`)); put(st,'E'+rr,F(`D${rr}*1000`)); rr++; });
+  // ---------- Min Max ----------
+  const mm=sheet('Min Max'); const tyrs=yrs.filter(y=>y>=2023); const [b0,b1]=ui.mmBand; const stRow=ym=>2+M.months.indexOf(ym);
+  put(mm,'B3','Mês'); tyrs.forEach((y,k)=>put(mm,COL(2+k)+'3',String(y))); const cAvg=COL(2+tyrs.length), cMax=COL(3+tyrs.length), cMin=COL(4+tyrs.length); put(mm,cAvg+'3',`Avg ${String(b0).slice(2)}-${String(b1).slice(2)}`); put(mm,cMax+'3',`Max ${String(b0).slice(2)}-${String(b1).slice(2)}`); put(mm,cMin+'3','MIN');
+  const cYoY0=6+tyrs.length; tyrs.slice(1).forEach((y,k)=>put(mm,COL(cYoY0+k)+'3',`${String(y).slice(2)}/${String(y-1).slice(2)}`));
+  for (let m=1;m<=12;m++){ const r=3+m; put(mm,'B'+r,MESES[m-1]); const mm2=String(m).padStart(2,'0');
+    tyrs.forEach((y,k)=>{ const i=M.months.indexOf(`${y}-${mm2}`); if (i<0||M.series[i]==null) return; put(mm,COL(2+k)+r,F(`'Série Temporal'!${i>M.lastKnown?'D':'B'}${2+i}/1000`)); });
+    const bandRefs=[]; for(let y=b0;y<=b1;y++){ const i=M.months.indexOf(`${y}-${mm2}`); if(i>=0&&i<=M.lastKnown) bandRefs.push(`'Série Temporal'!B${2+i}/1000`); }
+    if (bandRefs.length){ put(mm,cAvg+r,F(`AVERAGE(${bandRefs.join(',')})`)); put(mm,cMax+r,F(`MAX(${bandRefs.join(',')})`)); put(mm,cMin+r,F(`MIN(${bandRefs.join(',')})`)); }
+    tyrs.slice(1).forEach((y,k)=>put(mm,COL(cYoY0+k)+r,F(`${COL(3+k)}${r}/${COL(2+k)}${r}-1`))); }
+  tyrs.forEach((y,k)=>put(mm,COL(2+k)+'16',F(`SUM(${COL(2+k)}4:${COL(2+k)}15)`))); tyrs.slice(1).forEach((y,k)=>put(mm,COL(3+k)+'17',F(`${COL(3+k)}16/${COL(2+k)}16-1`)));
+  // ---------- Tabela ----------
+  const tb=sheet('Tabela'); put(tb,'B2','Previsão DATAGRO'); tyrs.forEach((y,k)=>put(tb,COL(2+k)+'4',y)); const vc0=3+tyrs.length; tyrs.slice(1).forEach((y,k)=>put(tb,COL(vc0+k)+'4',`Var (${String(y).slice(2)}/${String(y-1).slice(2)})`));
+  for (let m=1;m<=12;m++){ const r=4+m; put(tb,'B'+r,MESES[m-1]); tyrs.forEach((y,k)=>put(tb,COL(2+k)+r,F(`'Min Max'!${COL(2+k)}${3+m}`))); tyrs.slice(1).forEach((y,k)=>put(tb,COL(vc0+k)+r,F(`${COL(3+k)}${r}/${COL(2+k)}${r}-1`))); }
+  put(tb,'B17','Total Geral'); tyrs.forEach((y,k)=>put(tb,COL(2+k)+'17',F(`SUM(${COL(2+k)}5:${COL(2+k)}16)`))); put(tb,'B18','YoY'); tyrs.slice(1).forEach((y,k)=>put(tb,COL(3+k)+'18',F(`${COL(3+k)}17/${COL(2+k)}17-1`)));
+  const iy=tyrs.indexOf(yearOf(M.months[M.fcStart])); if (iy>0){ const cP=COL(2+iy-1), cC=COL(2+iy); const yP=tyrs[iy-1], yC=tyrs[iy];
+    put(tb,'E22',`H1/${yP}`); put(tb,'F22',`H1/${yC}`); put(tb,'G22','Var. YoY'); put(tb,'E23',F(`SUM(${cP}5:${cP}10)`)); put(tb,'F23',F(`SUM(${cC}5:${cC}10)`)); put(tb,'G23',F('F23/E23-1'));
+    put(tb,'E25',`H2/${yP}`); put(tb,'F25',`H2/${yC}`); put(tb,'G25','Var. YoY'); put(tb,'E26',F(`SUM(${cP}11:${cP}16)`)); put(tb,'F26',F(`SUM(${cC}11:${cC}16)`)); put(tb,'G26',F('F26/E26-1')); }
+  // ---------- Parâmetros (resumo) ----------
+  const pr=sheet('Parâmetros do app'); put(pr,'A1','Bloco'); put(pr,'B1','Parâmetro'); put(pr,'C1','Valor'); let r=2; const add=(a,b,c)=>{ put(pr,'A'+r,a); put(pr,'B'+r,b); put(pr,'C'+r, typeof c==='object'? JSON.stringify(c) : c); r++; };
+  add('Geral','Exportado em',new Date().toLocaleString('pt-BR')); add('Geral','Horizonte',P.horizonEnd); add('Geral','Último mês com dado',M.months[M.lastKnown]); add('Geral','Efeitos ativos',['saz','clima','cota'].filter(k=>P.effects[k]).join(', ')||'nenhum');
+  add('Regressão','Modo',P.regress.mode); add('Regressão','a',M.reg.a); add('Regressão','b',M.reg.b); add('Ciclo','A',P.cycle.A); add('Ciclo','B',P.cycle.B); add('Ciclo','C',P.cycle.C); add('Ciclo','D',P.cycle.D); add('Ciclo','Inícios',P.cycle.starts.join(', '));
+  add('Sazonalidade','Categoria',P.saz.category); add('Sazonalidade','Janela',`${P.saz.yearFrom}-${P.saz.yearTo}`); add('Clima','Após fim do ONI',P.clima.afterOni); add('Clima','Escala',P.clima.scale); add('Cota','Episódios',P.cota.episodes.map(e=>`${e.fim}→${e.ini}`).join('; ')); add('Cota','Repetir perfil',P.cota.repeat?'sim':'não'); add('Cota','Ajustes por mês',P.cota.overrides||{});
+  Object.entries(P.manual||{}).forEach(([ym,v])=>add('Ajuste manual',ym,v));
+  // ---------- montar workbook ----------
+  const wb=XLSX.utils.book_new(); wb.Workbook={CalcPr:{fullCalcOnLoad:true}};
+  for (const name in SH){ const ws={}; let maxR=0,maxC=0; for (const addr in SH[name].cells){ ws[addr]=SH[name].cells[addr]; const cc=XLSX.utils.decode_cell(addr); if(cc.r>maxR)maxR=cc.r; if(cc.c>maxC)maxC=cc.c; } ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:maxR,c:maxC}}); ws['!cols']=Array.from({length:maxC+1},()=>({wch:13})); XLSX.utils.book_append_sheet(wb, ws, name); }
+  return wb;
+}
+let _xlsxLoading=null;
+function loadXLSX(){ if (window.XLSX) return Promise.resolve(window.XLSX); if (_xlsxLoading) return _xlsxLoading; _xlsxLoading=new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload=()=>res(window.XLSX); sc.onerror=()=>{ _xlsxLoading=null; rej(new Error('xlsx')); }; document.head.appendChild(sc); }); return _xlsxLoading; }
+async function exportExcel(){ toast('Montando a planilha…'); try{ const XLSX=await loadXLSX(); const wb=xlBuild(XLSX); const out=XLSX.write(wb,{bookType:'xlsx',type:'array'}); await download(`Previsao_de_abate_${new Date().toISOString().slice(0,10)}.xlsx`, out, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); }catch(e){ toast('Não foi possível gerar o Excel: '+(e.message||e)); } }
+
+/* ===================== ações do topo ===================== */
+$('#btnSave').onclick=()=>{ state.meta.dirty=false; saveState(); };
+$('#btnReset').onclick=()=>{ openModal(`<h2>Restaurar padrão da planilha?</h2><p>Dados, parâmetros e ajustes voltam exatamente ao modelo Excel original. Os cenários salvos são mantidos.</p><div class="toolbar"><button class="btn primary" id="rsGo">Restaurar</button><button class="btn" id="mClose">Cancelar</button></div>`); $('#mClose').onclick=closeModal; $('#rsGo').onclick=()=>{ state.data=clone(DEFAULT_DATA); state.params=clone(DEFAULT_PARAMS); state.meta.dirty=true; closeModal(); render(); toast('Padrão restaurado. Clique em Salvar para gravar.'); }; };
+$('#btnExport').onclick=()=>{ openModal(`<h2>Exportar</h2><div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+  <button class="btn primary" id="exXlsx">Planilha Excel com a estrutura do modelo original (.xlsx)</button>
+  <button class="btn" id="exJson">Estado completo do modelo (JSON) — para backup ou para carregar em outro navegador</button>
+  <button class="btn" id="exCsv">Série mensal com fatores (CSV)</button>
+  <button class="btn" id="exTab">Tabela anual por mês (CSV)</button>
+  <label class="btn" style="justify-content:center">Importar estado (JSON)… <input type="file" id="imJson" accept="application/json" hidden></label>
+  <button class="btn ghost" id="mClose">Fechar</button></div>`); $('#mClose').onclick=closeModal;
+  $('#exXlsx').onclick=exportExcel;
+  $('#exJson').onclick=()=>download('previsao_abate_estado.json',JSON.stringify(state,null,1),'application/json');
+  $('#exCsv').onclick=()=>{ const lines=['mes;abate;origem;base_ciclo;saz;clima;cota']; M.months.forEach((ym,i)=>{ if(M.series[i]==null) return; const f=M.fcMap.get(ym); lines.push([ym,Math.round(M.series[i]),i>M.lastKnown?'projecao':M.source[i],(i>M.lastKnown?Math.round(M.base[i]):(M.mm12[i]!=null?Math.round(M.mm12[i]):'')),f?(f.sOn*100).toFixed(3):'',f?(f.cOn*100).toFixed(3):'',f?(f.qOn*100).toFixed(3):''].join(';')); }); download('previsao_abate.csv',lines.join('\n')); };
+  $('#exTab').onclick=()=>{ const yrs=Object.keys(M.years).map(Number).filter(y=>y>=2019).sort(); const lines=['mes;'+yrs.join(';')]; for(let m=1;m<=12;m++) lines.push([MESES[m-1],...yrs.map(y=>{ const i=M.months.indexOf(`${y}-${String(m).padStart(2,'0')}`); return i>=0&&M.series[i]!=null?Math.round(M.series[i]):''; })].join(';')); lines.push(['total',...yrs.map(y=>Math.round(M.years[y].total))].join(';')); download('tabela_anual.csv',lines.join('\n')); };
+  $('#imJson').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const s=JSON.parse(rd.result); if(!s.params||!s.data) throw 0; state=migrate(s); state.meta.dirty=true; closeModal(); render(); toast('Estado importado. Clique em Salvar para gravar.'); }catch(err){ toast('Arquivo inválido.'); } }; rd.readAsText(f); }; };
+
+let _rz=null; window.addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ const ae=document.activeElement; if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')) return; render(); },200); });
+try{ new ResizeObserver(()=>{ document.documentElement.style.setProperty('--top-h', $('.top').offsetHeight+'px'); }).observe($('.top')); }catch(e){}
+/* ===================== boot ===================== */
+(function start(){ const h=location.hash.replace('#',''); if (VIEWS.some(v=>v.id===h)) ui.view=h; render(); initCaps(); })();
+</script>
+</body></html>
